@@ -1,0 +1,7 @@
+{
+  "name": "Zero✦Degree with backend",
+  "description": "Zero✦Degree - Unleash your hunger. Order now.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
