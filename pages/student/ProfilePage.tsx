@@ -1,8 +1,6 @@
-
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { getStudentProfile, updateStudentProfile } from '../../services/mockApi';
+import { getStudentProfile } from '../../services/mockApi';
 import type { StudentProfile } from '../../types';
 import { Link } from 'react-router-dom';
 
@@ -108,11 +106,10 @@ const ProfilePage: React.FC = () => {
         if (!user) return;
         
         try {
-            await updateStudentProfile(user.id, formData);
+            await updateUser({ username: formData.name, phone: formData.phone });
             if(profile) {
                 setProfile({ ...profile, name: formData.name, phone: formData.phone });
             }
-            updateUser({ username: formData.name, phone: formData.phone });
             setIsEditing(false);
             setMessage('Profile updated successfully!');
             setTimeout(() => setMessage(''), 3000);

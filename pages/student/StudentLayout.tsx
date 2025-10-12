@@ -1,11 +1,12 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import DynamicBackground from '../../components/student/DynamicBackground';
 import { useAuth } from '../../context/AuthContext';
-import { getStudentOrders, updateFirstLoginStatus } from '../../services/mockApi';
+import { getStudentOrders } from '../../services/mockApi';
 import { Order, OrderStatus } from '../../types';
 
-type ToastType = 'cart-add' | 'cart-warn' | 'stock-out' | 'coupon-success' | 'coupon-error' | 'payment-success' | 'payment-error';
+type ToastType = 'cart-add' | 'cart-warn' | 'stock-out' | 'coupon-success' | 'coupon-error' | 'payment-success' | 'payment-error' | 'logout-success';
 interface ToastInfo {
   id: number;
   message: string;
@@ -56,7 +57,7 @@ const ActiveOrderTracker: React.FC<{ order: Order }> = ({ order }) => {
 
     return (
         <div className={`
-            ${isPrepared ? 'bg-green-500/80 text-white' : 'bg-student-accent/80 text-student-bg-dark'}
+            ${isPrepared ? 'bg-green-500/80 text-white' : 'bg-primary/80 text-background'}
             backdrop-blur-sm animate-fade-in-down shadow-lg
         `}>
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-2 text-center">
@@ -118,6 +119,9 @@ const StudentLayout: React.FC = () => {
   const [notificationPermission, setNotificationPermission] = useState('Notification' in window ? Notification.permission : 'denied');
   const [showPermissionBanner, setShowPermissionBanner] = useState(false);
 
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [centerToast, setCenterToast] = useState<ToastInfo | null>(null);
+
   const greeting = useMemo(() => greetings[Math.floor(Math.random() * greetings.length)], []);
 
   useEffect(() => {
@@ -144,9 +148,13 @@ const StudentLayout: React.FC = () => {
     return () => window.removeEventListener('show-toast', handleShowToast);
   }, []);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
+  const confirmLogout = () => {
+    setShowLogoutConfirm(false);
+    setCenterToast({ id: Date.now(), message: 'Logged out successfully!', type: 'logout-success' });
+    setTimeout(() => {
+        logout();
+        navigate('/login-student');
+    }, 3000);
   };
   
   const handleStartDemo = () => {
@@ -156,8 +164,7 @@ const StudentLayout: React.FC = () => {
 
   const handleSkipDemo = async () => {
     if (user) {
-        await updateFirstLoginStatus(user.id);
-        updateUser({ isFirstLogin: false });
+        await updateUser({ isFirstLogin: false });
         setShowDemoModal(false);
     }
   };
@@ -181,7 +188,7 @@ const StudentLayout: React.FC = () => {
         onClick={() => setIsDrawerOpen(false)}
         className={({ isActive }) =>
             `flex items-center px-4 py-3 rounded-lg text-lg font-medium transition-colors ${
-            isActive ? 'bg-student-accent text-student-bg-dark font-black' : 'text-student-text-secondary hover:bg-student-card-hover hover:text-white'
+            isActive ? 'bg-primary text-background font-black' : 'text-textSecondary hover:bg-surface hover:text-textPrimary'
             }`
         }
     >
@@ -240,15 +247,16 @@ const StudentLayout: React.FC = () => {
       case 'coupon-error': return { bg: 'bg-toast-coupon-error', icon: <div className="animate-shake-toast-icon">❌</div>, glow: 'shadow-[0_0_20px_rgba(239,68,68,0.4)]' };
       case 'payment-success': return { bg: 'bg-toast-payment-success backdrop-blur-md', icon: <AnimatedCheckIcon />, glow: 'shadow-[0_0_20px_rgba(34,197,94,0.6)]' };
       case 'payment-error': return { bg: 'bg-toast-payment-error', icon: '🚫', glow: 'shadow-[0_0_20px_rgba(185,28,28,0.5)]' };
+      case 'logout-success': return { bg: 'bg-gradient-to-r from-violet-600 to-red-600', icon: '👋', glow: 'shadow-[0_0_20px_rgba(190,24,93,0.5)]' };
       default: return { bg: 'bg-gray-700', icon: '🔔', glow: '' };
     }
   };
 
 
   return (
-    <div className="flex flex-col min-h-screen font-sans text-student-text-primary">
+    <div className="flex flex-col min-h-screen font-sans text-textPrimary">
       <DynamicBackground />
-      <div className="absolute inset-0 bg-student-bg-dark/40 -z-40"></div>
+      <div className="absolute inset-0 bg-background/40 -z-40"></div>
 
        {/* Global Toast Notification */}
       {activeToast && (
@@ -268,6 +276,36 @@ const StudentLayout: React.FC = () => {
         </div>
       )}
 
+      {/* Center Toast for Logout */}
+        {centerToast && (
+            <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[101] flex items-center justify-center animate-fade-in-down">
+                <div className="bg-gradient-to-br from-violet-600 to-red-600 p-8 rounded-2xl shadow-2xl w-64 h-64 flex flex-col items-center justify-center text-center">
+                    <span className="text-4xl mb-4">👋</span>
+                    <p className="text-white text-xl font-bold">{centerToast.message}</p>
+                </div>
+            </div>
+        )}
+
+        {/* Logout Confirmation Modal */}
+        {showLogoutConfirm && (
+            <div className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 animate-fade-in-down">
+                <div className="bg-energetic-gradient p-1 rounded-2xl shadow-2xl max-w-sm w-full">
+                    <div className="bg-background rounded-xl p-8 text-center">
+                        <h2 className="text-2xl font-bold font-heading text-textPrimary mb-2">Log Out</h2>
+                        <p className="text-textSecondary mb-6">Are you sure you want to log out?</p>
+                        <div className="flex justify-center gap-4">
+                            <button onClick={() => setShowLogoutConfirm(false)} className="bg-surface hover:bg-surface-light text-textPrimary font-bold py-2 px-6 rounded-lg transition-colors">
+                                Cancel
+                            </button>
+                            <button onClick={confirmLogout} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition-colors">
+                                Yes, Logout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+
        {/* Drawer Overlay */}
        <div
           className={`fixed inset-0 bg-black/60 z-50 transition-opacity duration-300 ${isDrawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
@@ -275,9 +313,9 @@ const StudentLayout: React.FC = () => {
       />
 
       {/* Side Drawer */}
-      <aside className={`fixed top-0 left-0 h-full w-64 bg-student-bg-dark/90 backdrop-blur-xl border-r border-student-card-border shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-          <div className="flex items-center justify-between p-4 border-b border-student-card-border h-16">
-              <h2 className="text-xl font-bold font-heading text-student-accent">Zero✦Degree</h2>
+      <aside className={`fixed top-0 left-0 h-full w-64 bg-background/90 backdrop-blur-xl border-r border-surface-light shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+          <div className="flex items-center justify-between p-4 border-b border-surface-light h-16">
+              <h2 className="text-xl font-bold font-heading text-primary">Zero✦Degree</h2>
               <button onClick={() => setIsDrawerOpen(false)} className="text-gray-400 hover:text-white">
                   <CloseIcon />
               </button>
@@ -286,111 +324,115 @@ const StudentLayout: React.FC = () => {
               <div className="flex-grow space-y-2">
                   {drawerNavLinks.map(link => <DrawerNavLink key={link.to} {...link} />)}
               </div>
+              <div className="mt-auto pt-4 border-t border-surface-light">
+                  <button
+                      onClick={() => { setIsDrawerOpen(false); setShowLogoutConfirm(true); }}
+                      className="flex items-center w-full px-4 py-3 rounded-lg text-lg font-medium text-textSecondary hover:bg-red-500/20 hover:text-red-300 transition-colors"
+                  >
+                      <LogoutIcon className="h-5 w-5 mr-3" />
+                      Logout
+                  </button>
+              </div>
           </div>
       </aside>
 
        {/* Header */}
-      <header className="bg-student-bg-dark/60 backdrop-blur-lg sticky top-0 z-40 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 border-b border-student-card-border">
+      <header className="bg-background/60 backdrop-blur-lg sticky top-0 z-40 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 border-b border-surface-light">
         <div className="flex items-center gap-4">
             <button onClick={() => setIsDrawerOpen(true)} className="text-gray-300 hover:text-white">
               <MenuIcon />
             </button>
-            <h1 className="text-xl font-black font-heading text-student-text-primary" style={{textShadow: '0 2px 4px rgba(0,0,0,0.5)'}}>{greeting}</h1>
+            <h1 className="text-xl font-black font-heading text-textPrimary" style={{textShadow: '0 2px 4px rgba(0,0,0,0.5)'}}>{greeting}</h1>
         </div>
+         <button onClick={() => setShowLogoutConfirm(true)} className="text-gray-300 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors" aria-label="Logout">
+            <LogoutIcon />
+        </button>
       </header>
        
-      {/* Desktop Primary Nav */}
-       <nav className="hidden sm:flex justify-center items-center gap-8 bg-student-bg-dark/70 backdrop-blur-lg border-b border-student-card-border sticky top-16 z-30 h-14">
+       {/* Desktop Primary Nav */}
+       <nav className="hidden sm:flex justify-center items-center gap-8 bg-background/70 backdrop-blur-lg py-3 sticky top-16 z-30 border-b border-surface-light shadow-md">
             {primaryNavLinks.map(link => (
-                <NavLink 
+                <NavLink
                     key={link.to}
-                    to={link.to} 
+                    to={link.to}
                     className={({ isActive }) =>
-                        `flex items-center gap-2 font-medium border-b-2 transition-colors px-2 py-1 ${
-                        isActive ? 'border-student-accent text-student-accent' : 'border-transparent text-student-text-secondary hover:text-white'
+                        `flex items-center gap-2 font-semibold text-lg transition-colors pb-1 border-b-2 ${
+                        isActive ? 'border-primary text-primary' : 'border-transparent text-textSecondary hover:text-textPrimary'
                         }`
                     }
                 >
-                    {link.icon}
+                    <div className={link.to === '/student/cart' && isCartAnimating ? 'animate-cart-bounce' : ''}>
+                        {link.icon}
+                    </div>
                     <span>{link.label}</span>
                 </NavLink>
             ))}
-            <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 font-medium text-student-text-secondary hover:text-white transition-colors"
-            >
-                <LogoutIcon />
-                <span>Logout</span>
-            </button>
         </nav>
 
-       {activeOrder && <ActiveOrderTracker order={activeOrder} />}
-
-      {showPermissionBanner && (
-        <div className="bg-student-accent/80 backdrop-blur-sm border-b-2 border-student-accent-dark/20">
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-2 flex justify-between items-center">
-                <p className="text-sm text-student-bg-dark font-semibold">Enable notifications for real-time order updates!</p>
-                <div>
-                    <button onClick={handleRequestPermission} className="bg-student-bg-dark text-student-text-primary font-semibold px-3 py-1 text-sm rounded-md hover:bg-gray-800">Enable</button>
-                    <button onClick={() => setShowPermissionBanner(false)} className="ml-2 text-student-bg-dark font-semibold text-sm px-2 py-1">Dismiss</button>
-                </div>
+        {/* Main Content */}
+        <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8 pb-24 sm:pb-8">
+            <div key={location.pathname} className="animate-fade-in-down">
+                <Outlet />
             </div>
-        </div>
-      )}
-      
-      <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8 pb-24 sm:pb-8">
-        <div key={location.pathname}>
-            <Outlet />
-        </div>
-      </main>
+        </main>
 
-      {/* Bottom navigation for small screens */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-student-bg-dark/80 backdrop-blur-lg shadow-lg border-t border-student-card-border z-40">
-        <div className="flex justify-around items-center h-16">
-            {primaryNavLinks.map(link => 
-              <NavLink 
-                key={link.to}
-                to={link.to} 
-                id={link.to === '/student/cart' ? 'cart-icon-wrapper' : undefined}
-                className={({ isActive }) =>
-                  `flex flex-col items-center justify-center gap-1 w-full text-student-text-secondary hover:text-white transition-colors font-medium p-2 rounded-md ${
-                    isActive ? 'text-student-accent' : ''
-                  } ${link.to === '/student/cart' && isCartAnimating ? 'animate-cart-bounce' : ''}`
-                }
-              >
-                {link.icon}
-                <span className="text-xs">{link.label}</span>
-              </NavLink>
-            )}
-             <button
-              onClick={handleLogout}
-              className="flex flex-col items-center justify-center gap-1 w-full text-student-text-secondary hover:text-white transition-colors font-medium p-2 rounded-md"
-            >
-              <LogoutIcon />
-              <span className="text-xs">Logout</span>
-            </button>
-        </div>
-      </nav>
+        {/* Bottom Nav for mobile */}
+        <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-lg border-t border-surface-light shadow-lg z-30">
+            <div className="flex justify-around items-center h-16">
+                {primaryNavLinks.map(link => (
+                    <NavLink
+                        key={link.to}
+                        to={link.to}
+                        className={({ isActive }) =>
+                            `flex flex-col items-center justify-center gap-1 w-full transition-colors relative ${
+                            isActive ? 'text-primary' : 'text-textSecondary hover:text-primary'
+                            }`
+                        }
+                    >
+                        <div className={link.to === '/student/cart' && isCartAnimating ? 'animate-cart-bounce' : ''}>
+                            {link.icon}
+                        </div>
+                        <span className="text-xs font-medium">{link.label}</span>
+                    </NavLink>
+                ))}
+            </div>
+        </nav>
 
-        {/* Demo Welcome Modal */}
+        {/* First time user demo modal */}
         {showDemoModal && (
-            <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
-                <div className="bg-student-bg-dark border border-student-card-border p-8 rounded-lg shadow-xl w-full max-w-sm text-center text-student-text-primary animate-fade-in-down">
-                    <h2 className="text-2xl font-bold font-heading text-student-accent mb-4">Try a Demo Order!</h2>
-                    <p className="text-student-text-secondary mb-6">
-                        Since this is your first time, you can try booking a demo food to understand how Zero✦Degree works. No real payment will be charged.
-                    </p>
-                    <div className="flex flex-col sm:flex-row justify-center gap-4">
-                        <button onClick={handleSkipDemo} className="bg-student-card-hover text-white font-bold font-heading py-3 px-6 rounded-lg hover:bg-gray-600 transition-colors w-full sm:w-auto">
-                            Skip for Now
+            <div className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4">
+                <div className="bg-surface border border-surface-light rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center animate-pop-in">
+                    <h2 className="text-2xl font-bold font-heading text-primary mb-2">Welcome to Zero✦Degree!</h2>
+                    <p className="text-textSecondary mb-6">Want a quick tour to see how ordering works? It takes less than a minute!</p>
+                    <div className="flex flex-col gap-4">
+                        <button onClick={handleStartDemo} className="btn-3d w-full bg-primary border-primary-dark text-background font-black py-3 px-4 rounded-xl">
+                            Let's Go! (Start Demo)
                         </button>
-                        <button onClick={handleStartDemo} className="btn-3d w-full sm:w-auto bg-student-accent border-student-accent-dark text-student-bg-dark font-black font-heading py-3 px-6 rounded-lg transition-transform hover:-translate-y-1">
-                            Start Demo
+                        <button onClick={handleSkipDemo} className="text-sm text-textSecondary/70 hover:underline">
+                            No thanks, I know what I'm doing
                         </button>
                     </div>
                 </div>
             </div>
         )}
+        
+         {/* Notification Permission Banner */}
+         {showPermissionBanner && (
+             <div className="fixed bottom-20 sm:bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-lg z-50 bg-surface/80 backdrop-blur-lg border border-surface-light p-4 rounded-lg shadow-lg flex items-center gap-4 animate-fade-in-down">
+                 <div className="text-2xl">🔔</div>
+                 <div className="flex-grow">
+                     <p className="font-bold text-textPrimary">Stay Updated!</p>
+                     <p className="text-sm text-textSecondary">Enable notifications to know when your order is ready for pickup.</p>
+                 </div>
+                 <div className="flex-shrink-0 flex gap-2">
+                     <button onClick={() => setShowPermissionBanner(false)} className="text-xs px-3 py-1 rounded-md text-textSecondary">Later</button>
+                     <button onClick={handleRequestPermission} className="text-xs bg-primary text-background font-bold px-3 py-2 rounded-md">Enable</button>
+                 </div>
+             </div>
+         )}
+         
+         {activeOrder && <ActiveOrderTracker order={activeOrder} />}
+
     </div>
   );
 };

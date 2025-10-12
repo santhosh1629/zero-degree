@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -90,15 +91,15 @@ const LoginOwnerPage: React.FC = () => {
           case 'rejected':
               return (
                   <div className="text-center text-white animate-fade-in-down">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-red-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                      </svg>
-                      <h2 className="text-3xl font-bold font-heading">Access Denied</h2>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-red-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      <h2 className="text-3xl font-bold font-heading">Account Rejected</h2>
                       <p className="text-gray-300 mt-2 mb-6">
-                          Unfortunately, your registration request has been rejected. Please contact support for more information.
+                          Your registration was rejected by the Admin. Please contact support for re-verification if you believe this is an error.
                       </p>
-                      <button onClick={() => { logout(); setPageState('form'); }} className="text-sm text-gray-400 hover:underline">
-                          Logout
+                      <button onClick={() => { logout(); setPageState('form'); }} className="w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors">
+                          Return to Login
                       </button>
                   </div>
               );
@@ -152,7 +153,7 @@ const LoginOwnerPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4 overflow-hidden">
-       <div className="relative max-w-md w-full bg-gray-900/50 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-8 animate-pop-in">
+       <div className={`relative max-w-md w-full bg-gray-900/50 backdrop-blur-xl border rounded-2xl shadow-2xl p-8 animate-pop-in transition-all ${pageState === 'rejected' ? 'border-red-500 shadow-red-500/20' : 'border-white/10'}`}>
           {renderContent()}
        </div>
     </div>

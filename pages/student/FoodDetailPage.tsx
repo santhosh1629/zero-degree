@@ -83,7 +83,7 @@ const FoodDetailPage: React.FC = () => {
         saveCartToStorage(newCart);
 
         window.dispatchEvent(new CustomEvent('itemAddedToCart'));
-        window.dispatchEvent(new CustomEvent('show-toast', { detail: '✅ Item Added to Cart' }));
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: '✅ Item Added to Cart', type: 'cart-add' } }));
     }, [item]);
 
 

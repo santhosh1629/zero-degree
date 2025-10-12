@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { MenuItem, CartItem } from '../../types';
 import { getMenu, toggleFavoriteItem, getOwnerStatus } from '../../services/mockApi';
 import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../services/supabase';
 
 declare const gsap: any;
 
@@ -52,18 +53,18 @@ const PromotionsBanner: React.FC<{ items: MenuItem[]; onCardClick: (item: MenuIt
     
     return (
         <section className="mb-8" ref={wrapperRef}>
-             <h2 className="text-2xl font-bold font-heading mb-4 text-student-text-primary inline-block relative bg-black/50 backdrop-blur-lg px-4 py-2 rounded-lg border border-student-card-border" style={{textShadow: '0 2px 4px rgba(0,0,0,0.5)'}}>
+             <h2 className="text-2xl font-bold font-heading mb-4 text-textPrimary inline-block relative bg-black/50 backdrop-blur-lg px-4 py-2 rounded-lg border border-surface-light" style={{textShadow: '0 2px 4px rgba(0,0,0,0.5)'}}>
                 🔥 Daily Offers & Bestsellers
             </h2>
             <div className="w-full overflow-hidden mask-gradient">
                  <div ref={scrollerRef} className="flex gap-6 w-max py-4">
                     {items.map(item => (
-                        <div key={item.id} onClick={(e) => onCardClick(item, e.currentTarget)} className="w-80 h-48 bg-student-card backdrop-blur-lg border border-student-card-border rounded-xl shadow-lg overflow-hidden cursor-pointer flex-shrink-0 group transform transition-transform hover:scale-105 hover:shadow-2xl flex">
+                        <div key={item.id} onClick={(e) => onCardClick(item, e.currentTarget)} className="w-80 h-48 bg-surface/50 backdrop-blur-lg border border-surface-light rounded-xl shadow-lg overflow-hidden cursor-pointer flex-shrink-0 group transform transition-transform hover:scale-105 hover:shadow-2xl flex">
                             <img src={item.imageUrl} alt={item.name} className="w-1/2 h-full object-cover"/>
-                            <div className="p-4 flex flex-col justify-center w-1/2 text-student-text-primary">
+                            <div className="p-4 flex flex-col justify-center w-1/2 text-textPrimary">
                                 <h3 className="font-bold font-heading text-lg">{item.name}</h3>
-                                <p className="font-black font-heading text-student-accent text-2xl mt-2">₹{item.price}</p>
-                                <span className="text-student-text-secondary text-sm font-semibold mt-auto opacity-0 group-hover:opacity-100 transition-opacity">Order Now &rarr;</span>
+                                <p className="font-black font-heading text-primary text-2xl mt-2">₹{item.price}</p>
+                                <span className="text-textSecondary text-sm font-semibold mt-auto opacity-0 group-hover:opacity-100 transition-opacity">Order Now &rarr;</span>
                             </div>
                         </div>
                     ))}
@@ -87,6 +88,7 @@ const MenuItemCard: React.FC<{
 }> = ({ item, onCardClick, onToggleFavorite, onAddToCart }) => {
     const { id, name, price, isAvailable, imageUrl, averageRating, isFavorited, emoji, isCombo } = item;
     const [isAdding, setIsAdding] = useState(false);
+    const [isAnimatingFavorite, setIsAnimatingFavorite] = useState(false);
 
     const handleAddToCartClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -95,21 +97,34 @@ const MenuItemCard: React.FC<{
         setIsAdding(true);
         setTimeout(() => setIsAdding(false), 700); // Animation duration
     };
+
+    const handleFavoriteClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!isFavorited) { // Animate only when adding
+            setIsAnimatingFavorite(true);
+            setTimeout(() => setIsAnimatingFavorite(false), 500);
+        }
+        onToggleFavorite(id, isFavorited ?? false);
+    };
     
     return (
-        <div onClick={() => isAvailable ? onCardClick(id) : window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Currently Out of Stock!', type: 'stock-out' } }))} className={`bg-student-card backdrop-blur-lg border border-student-card-border rounded-2xl shadow-lg overflow-hidden transition-all duration-300 group hover:shadow-2xl hover:bg-student-card-hover hover:-translate-y-1 ${!isAvailable ? 'opacity-50 grayscale cursor-not-allowed' : 'cursor-pointer'}`}>
+        <div onClick={() => isAvailable ? onCardClick(id) : window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Currently Out of Stock!', type: 'stock-out' } }))} className={`bg-surface/50 backdrop-blur-lg border border-surface-light rounded-2xl shadow-lg overflow-hidden transition-all duration-300 group hover:shadow-2xl hover:bg-surface-light/30 hover:-translate-y-1 ${!isAvailable ? 'opacity-50 grayscale cursor-not-allowed' : 'cursor-pointer'}`}>
             <div className="relative">
                 <img src={imageUrl} alt={name} className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300" />
-                {isCombo && <span className="absolute top-2 left-2 bg-student-accent text-student-bg-dark text-xs font-bold px-2 py-1 rounded-full">COMBO</span>}
+                <div className="absolute top-2 left-2 flex flex-col gap-1">
+                    <span className={`text-xs font-bold px-2 py-1 rounded-full text-white ${isAvailable ? 'bg-green-600/80' : 'bg-red-600/80'} backdrop-blur-sm`}>
+                        {isAvailable ? 'AVAILABLE' : 'UNAVAILABLE'}
+                    </span>
+                    {isCombo && <span className="text-xs font-bold px-2 py-1 rounded-full bg-primary/80 text-background backdrop-blur-sm">COMBO</span>}
+                </div>
                 <button 
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleFavorite(id, isFavorited ?? false);
-                    }}
-                    className="absolute top-2 right-2 bg-white/70 backdrop-blur-sm p-2 rounded-full text-2xl transition-transform hover:scale-125"
+                    onClick={handleFavoriteClick}
+                    className="absolute top-2 right-2 bg-black/30 backdrop-blur-sm p-2 rounded-full text-2xl transition-transform hover:scale-125 active:scale-90"
                     aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
                 >
-                    {isFavorited ? '❤️' : '🤍'}
+                    <span className={isAnimatingFavorite ? 'animate-heart-pop block' : 'block'}>
+                        {isFavorited ? '❤️' : '🤍'}
+                    </span>
                 </button>
                 {!isAvailable && (
                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
@@ -117,21 +132,21 @@ const MenuItemCard: React.FC<{
                     </div>
                 )}
             </div>
-            <div className="p-4 text-student-text-primary">
+            <div className="p-4 text-textPrimary">
                 <h3 className="font-bold font-heading text-lg truncate">{emoji} {name}</h3>
                 <div className="flex justify-between items-center mt-2">
-                    <p className="font-black font-heading text-student-accent text-xl">₹{price}</p>
+                    <p className="font-black font-heading text-primary text-xl">₹{price}</p>
                     <div className="flex items-center gap-3">
                         {averageRating !== undefined && (
                              <div className="flex items-center gap-1">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-400" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                                <span className="text-sm font-semibold text-student-text-secondary">{averageRating.toFixed(1)}</span>
+                                <span className="text-sm font-semibold text-textSecondary">{averageRating.toFixed(1)}</span>
                             </div>
                         )}
                         {isAvailable && (
                             <button
                                 onClick={handleAddToCartClick}
-                                className={`bg-student-accent text-student-bg-dark font-black rounded-full p-2 transition-transform duration-200 hover:scale-110 active:scale-95 ${isAdding ? 'animate-cart-bounce' : ''}`}
+                                className={`bg-primary text-background font-black rounded-full p-2 transition-transform duration-200 hover:scale-110 active:scale-95 ${isAdding ? 'animate-cart-bounce' : ''}`}
                                 aria-label="Add to cart"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -151,6 +166,7 @@ const MenuPage: React.FC = () => {
     const [filteredMenu, setFilteredMenu] = useState<MenuItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
     const [isCanteenOnline, setIsCanteenOnline] = useState(true);
     
     const { user } = useAuth();
@@ -179,19 +195,30 @@ const MenuPage: React.FC = () => {
         };
         initialFetch();
         
-        const intervalId = setInterval(fetchPageData, 5000); // Poll every 5 seconds
+        const channel = supabase
+            .channel('public:menu')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'menu' }, (payload) => {
+                console.log('Menu change received!', payload);
+                fetchPageData(); // Refetch data on any change
+            })
+            .subscribe();
 
-        return () => clearInterval(intervalId);
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [fetchPageData]);
 
 
     useEffect(() => {
         let items = [...menu];
+        if (showFavoritesOnly) {
+            items = items.filter(item => item.isFavorited);
+        }
         if (searchTerm) {
             items = items.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()));
         }
         setFilteredMenu(items);
-    }, [menu, searchTerm]);
+    }, [menu, searchTerm, showFavoritesOnly]);
 
     const handleToggleFavorite = async (itemId: string, isFavorited: boolean) => {
         if (!user) return;
@@ -199,6 +226,9 @@ const MenuPage: React.FC = () => {
             item.id === itemId ? { ...item, isFavorited: !isFavorited, favoriteCount: (item.favoriteCount || 0) + (!isFavorited ? 1 : -1) } : item
         ));
         await toggleFavoriteItem(user.id, itemId);
+
+        const message = !isFavorited ? 'Added to favorites! ❤️' : 'Removed from favorites.';
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { message, type: 'cart-warn' } }));
     };
 
     const handleAddToCart = useCallback((item: MenuItem) => {
@@ -238,19 +268,19 @@ const MenuPage: React.FC = () => {
         return (
             <div className="animate-pulse">
                 <div className="mb-8">
-                    <div className="h-10 bg-student-card rounded-lg w-1/3 mb-4"></div>
+                    <div className="h-10 bg-surface rounded-lg w-1/3 mb-4"></div>
                     <div className="flex gap-4 overflow-hidden">
-                        <div className="w-80 h-48 bg-student-card rounded-xl flex-shrink-0"></div>
-                        <div className="w-80 h-48 bg-student-card rounded-xl flex-shrink-0"></div>
-                        <div className="w-80 h-48 bg-student-card rounded-xl flex-shrink-0"></div>
+                        <div className="w-80 h-48 bg-surface rounded-xl flex-shrink-0"></div>
+                        <div className="w-80 h-48 bg-surface rounded-xl flex-shrink-0"></div>
+                        <div className="w-80 h-48 bg-surface rounded-xl flex-shrink-0"></div>
                     </div>
                 </div>
                 <div>
-                    <div className="h-10 bg-student-card rounded-lg w-1/4 mb-4"></div>
-                    <div className="mb-6 h-12 bg-student-card rounded-xl"></div>
+                    <div className="h-10 bg-surface rounded-lg w-1/4 mb-4"></div>
+                    <div className="mb-6 h-12 bg-surface rounded-xl"></div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                         {Array.from({ length: 4 }).map((_, i) => (
-                            <div key={i} className="h-72 bg-student-card rounded-2xl"></div>
+                            <div key={i} className="h-72 bg-surface rounded-2xl"></div>
                         ))}
                     </div>
                 </div>
@@ -269,19 +299,30 @@ const MenuPage: React.FC = () => {
             <PromotionsBanner items={topSellingItems} onCardClick={handleCarouselCardClick} />
 
             <section>
-                <h2 className="text-2xl font-bold font-heading mb-4 text-student-text-primary bg-black/50 backdrop-blur-lg px-4 py-2 rounded-lg inline-block border border-student-card-border" style={{textShadow: '0 2px 4px rgba(0,0,0,0.5)'}}>Full Menu</h2>
-                 <div className="mb-6 bg-student-card backdrop-blur-lg p-2 rounded-xl shadow-lg sticky top-[calc(4rem+3.5rem+1rem)] z-30 border border-student-card-border">
+                <h2 className="text-2xl font-bold font-heading mb-4 text-textPrimary bg-black/50 backdrop-blur-lg px-4 py-2 rounded-lg inline-block border border-surface-light" style={{textShadow: '0 2px 4px rgba(0,0,0,0.5)'}}>Full Menu</h2>
+                 <div className="mb-6 bg-surface/50 backdrop-blur-lg p-2 rounded-xl shadow-lg sticky top-[calc(4rem+3.5rem+1rem)] z-30 border border-surface-light flex items-center gap-2">
                     <input
                         type="text"
                         placeholder="SEARCH. EAT. REPEAT."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full px-4 py-2 border-none bg-black/20 text-student-text-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-student-accent placeholder:text-student-text-secondary/80 font-black"
+                        className="flex-grow px-4 py-2 border-none bg-black/20 text-textPrimary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-textSecondary/80 font-black"
                     />
+                    <button
+                        onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                        className={`flex-shrink-0 p-3 rounded-lg transition-colors ${showFavoritesOnly ? 'bg-red-500/80 text-white' : 'bg-black/20 text-white/70 hover:text-white'}`}
+                        aria-label="Show favorites only"
+                        title="Show favorites only"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                        </svg>
+                    </button>
                 </div>
                 {filteredMenu.length === 0 && !loading ? (
-                    <div className="text-center py-16 bg-student-card backdrop-blur-lg rounded-xl shadow-lg border border-student-card-border">
-                        <p className="text-xl font-semibold text-student-text-primary">NO FOOD MATCHES YOUR SEARCH.</p>
+                    <div className="text-center py-16 bg-surface/50 backdrop-blur-lg rounded-xl shadow-lg border border-surface-light">
+                        <p className="text-xl font-semibold text-textPrimary">NO FOOD MATCHES YOUR SEARCH.</p>
+                         {showFavoritesOnly && <p className="text-textSecondary mt-2">Try removing the 'favorites only' filter.</p>}
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">

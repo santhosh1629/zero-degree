@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+
+
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
@@ -11,9 +13,13 @@ const ScanIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w
 const FeedbackDrawerIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>);
 const PopularityIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>);
 const RewardsIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 11l3-3m0 0l3 3m-3-3v8m0-13a9 9 0 110 18 9 9 0 010-18z" /><path d="M9 11l3-3m0 0l3 3m-3-3v8m-9 5a9 9 0 1118 0 9 9 0 01-18 0z" /></svg>);
-const PaymentIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>);
 const LogoutIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>);
 const DemoOrdersDrawerIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.428 15.428a4 4 0 00-5.656 0l-2.829 2.829a4 4 0 01-5.656-5.656l2.829-2.829a4 4 0 005.656-5.656l-2.829-2.829a4 4 0 00-5.656 5.656l2.829 2.829" /><path d="M12 21v-4m0 0V6.5a3.5 3.5 0 00-3.5-3.5H8.5a3.5 3.5 0 000 7h3.5" /></svg>);
+
+interface ToastInfo {
+  id: number;
+  message: string;
+}
 
 const OwnerLayout: React.FC = () => {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -21,13 +27,23 @@ const OwnerLayout: React.FC = () => {
     const { logout, user } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const [activeToast, setActiveToast] = useState<ToastInfo | null>(null);
+    
+     useEffect(() => {
+        const handleShowToast = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            setActiveToast({ id: Date.now(), ...detail });
+        };
+        window.addEventListener('show-owner-toast', handleShowToast);
+        return () => window.removeEventListener('show-owner-toast', handleShowToast);
+    }, []);
 
     const handleLogoutClick = () => {
         setShowLogoutConfirm(true);
     };
 
     const confirmLogout = async () => {
-        await logout();
+        await logout(); // This now handles setting items to unavailable
         setShowLogoutConfirm(false);
         navigate('/');
     };
@@ -46,7 +62,6 @@ const OwnerLayout: React.FC = () => {
         { to: "/owner/popularity", icon: <PopularityIcon />, label: "Food Popularity" },
         { to: "/owner/rewards", icon: <RewardsIcon />, label: "Rewards" },
         { to: "/owner/demo-orders", icon: <DemoOrdersDrawerIcon />, label: "Demo Orders" },
-        { to: "/owner/bank-details", icon: <PaymentIcon />, label: "Payment Details" },
         { to: "/owner/feedback", icon: <FeedbackDrawerIcon />, label: "Feedback" },
     ];
 
@@ -66,6 +81,21 @@ const OwnerLayout: React.FC = () => {
 
     return (
         <div className="flex flex-col min-h-screen bg-gray-900 text-gray-300">
+             {/* Global Toast Notification */}
+            {activeToast && (
+                <div key={activeToast.id} className="fixed top-20 right-6 z-[100] w-full max-w-sm pointer-events-none">
+                    <div
+                        onAnimationEnd={() => setActiveToast(null)}
+                        className="flex items-center gap-4 p-3 pr-4 rounded-lg shadow-lg text-white font-bold bg-indigo-600/80 backdrop-blur-md border border-indigo-500/50 animate-toast"
+                    >
+                        <span className="flex-shrink-0 h-8 w-8 rounded-full bg-black/20 flex items-center justify-center text-xl">
+                           🔔
+                        </span>
+                        <p className="flex-grow text-sm">{activeToast.message}</p>
+                    </div>
+                </div>
+            )}
+            
             {/* Drawer Overlay */}
             {isDrawerOpen && (
                 <div

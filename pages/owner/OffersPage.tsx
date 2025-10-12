@@ -1,13 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-// FIX: Imported the correct API functions for owner-side offer management.
 import { getAllOffersForOwner, createOffer, updateOfferStatus } from '../../services/mockApi';
 import type { Offer } from '../../types';
 
-// FIX: FormState was missing required properties.
-type FormState = Omit<Offer, 'id' | 'isUsed' | 'studentId' | 'isReward' | 'isActive'>;
+type FormState = Omit<Offer, 'id' | 'isUsed' | 'studentId' | 'isReward'>;
 
-// FIX: Initial form state was missing properties, causing type errors.
-const initialFormState: FormState = { code: '', description: '', discountType: 'fixed', discountValue: 0 };
+const initialFormState: FormState = { code: '', description: '', discountType: 'fixed', discountValue: 0, isActive: true };
 
 const OffersPage: React.FC = () => {
     const [offers, setOffers] = useState<Offer[]>([]);
@@ -34,7 +31,7 @@ const OffersPage: React.FC = () => {
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: name === 'discountValue' ? Number(value) : value.toUpperCase() }));
+        setFormData(prev => ({ ...prev, [name]: name === 'discountValue' ? Number(value) : (name === 'code' ? value.toUpperCase() : value) }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -52,7 +49,6 @@ const OffersPage: React.FC = () => {
 
     const handleToggleStatus = async (offer: Offer) => {
         try {
-            // FIX: The property 'isActive' is now available on the Offer type.
             await updateOfferStatus(offer.id, !offer.isActive);
             fetchOffers();
         } catch (err) {

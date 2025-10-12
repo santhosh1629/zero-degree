@@ -65,19 +65,19 @@ const LoginStudentPage: React.FC = () => {
 
   return (
     <>
-    <div className="min-h-screen flex items-center justify-center bg-student-bg-dark p-4 overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 overflow-hidden">
       <DynamicBackground />
       <div className="absolute inset-0 bg-black/70 z-0"></div>
 
-      <div ref={cardRef} className="relative max-w-md w-full bg-student-card backdrop-blur-xl border border-student-card-border rounded-2xl shadow-2xl p-8 z-10">
+      <div ref={cardRef} className="relative max-w-md w-full bg-surface/50 backdrop-blur-xl border border-surface-light rounded-2xl shadow-2xl p-8 z-10">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-extrabold text-student-text-primary font-heading">Student Login</h1>
-          <p className="text-student-text-secondary/80 mt-2">Let's get you some food!</p>
+          <h1 className="text-4xl font-extrabold text-textPrimary font-heading">Student Login</h1>
+          <p className="text-textSecondary/80 mt-2">Let's get you some food!</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
           <div>
-            <label className="block text-student-text-secondary font-semibold mb-2" htmlFor="phone">
+            <label className="block text-textSecondary font-semibold mb-2" htmlFor="phone">
               Phone Number
             </label>
             <input
@@ -87,13 +87,13 @@ const LoginStudentPage: React.FC = () => {
               autoComplete="off"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full px-4 py-3 bg-black/30 border-b-2 border-white/20 text-student-text-primary rounded-lg focus:outline-none focus:border-student-accent transition-all placeholder:text-white/40 focus:shadow-[0_0_15px_rgba(252,163,17,0.6)]"
+              className="w-full px-4 py-3 bg-black/30 border-b-2 border-white/20 text-textPrimary rounded-lg focus:outline-none focus:border-primary transition-all placeholder:text-white/40 focus:shadow-[0_0_15px_rgba(245,158,11,0.6)]"
               placeholder="e.g., 9876543210"
               required
             />
           </div>
           <div>
-            <label className="block text-student-text-secondary font-semibold mb-2" htmlFor="password">
+            <label className="block text-textSecondary font-semibold mb-2" htmlFor="password">
               Password
             </label>
             <div className="relative">
@@ -104,14 +104,14 @@ const LoginStudentPage: React.FC = () => {
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 pr-10 bg-black/30 border-b-2 border-white/20 text-student-text-primary rounded-lg focus:outline-none focus:border-student-accent transition-all placeholder:text-white/40 focus:shadow-[0_0_15px_rgba(252,163,17,0.6)]"
+                className="w-full px-4 py-3 pr-10 bg-black/30 border-b-2 border-white/20 text-textPrimary rounded-lg focus:outline-none focus:border-primary transition-all placeholder:text-white/40 focus:shadow-[0_0_15px_rgba(245,158,11,0.6)]"
                 placeholder="Enter your password"
                 required
               />
               <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-student-text-secondary/70 hover:text-student-text-secondary"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-textSecondary/70 hover:text-textSecondary"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOffIcon /> : <EyeIcon />}
@@ -119,7 +119,7 @@ const LoginStudentPage: React.FC = () => {
             </div>
           </div>
            <div className="text-right text-xs -mt-4">
-            <Link to="/forgot-password" className="text-student-text-secondary/70 hover:underline">Forgot Password?</Link>
+            <Link to="/forgot-password" className="text-textSecondary/70 hover:underline">Forgot Password?</Link>
           </div>
           
           {error && <p className="text-red-400 text-sm text-center !-mt-2">{error}</p>}
@@ -127,15 +127,15 @@ const LoginStudentPage: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="btn-3d w-full bg-student-accent border-student-accent-dark text-student-bg-dark font-black font-heading py-3 px-4 rounded-lg shadow-lg transition-transform hover:-translate-y-1 hover:shadow-student-accent/40 hover:shadow-2xl disabled:bg-student-accent/50 disabled:border-student-accent-dark/50 disabled:cursor-not-allowed disabled:transform-none"
+            className="btn-3d w-full bg-primary border-primary-dark text-background font-black font-heading py-3 px-4 rounded-lg shadow-lg transition-transform hover:-translate-y-1 hover:shadow-primary/40 hover:shadow-2xl disabled:bg-primary/50 disabled:border-primary-dark/50 disabled:cursor-not-allowed disabled:transform-none"
           >
             {loading ? 'Logging in...' : 'LOGIN'}
           </button>
         </form>
 
         <div className="text-center mt-6 space-y-2">
-            <p><Link to="/register-student" className="text-sm text-student-accent/90 hover:text-student-accent font-bold font-heading transition-colors">Don't have an account? Sign Up</Link></p>
-            <p><Link to="/login-owner" className="text-sm text-student-text-secondary/60 hover:text-student-text-secondary/80 font-medium transition-colors">Are you a restaurant partner?</Link></p>
+            <p><Link to="/register-student" className="text-sm text-primary/90 hover:text-primary font-bold font-heading transition-colors">Don't have an account? Sign Up</Link></p>
+            <p><Link to="/login-owner" className="text-sm text-textSecondary/60 hover:text-textSecondary/80 font-medium transition-colors">Are you a restaurant partner?</Link></p>
         </div>
       </div>
     </div>

@@ -4,9 +4,9 @@ import type { Order, MenuItem, SalesSummary, StudentPoints, TodaysDashboardStats
 import { OrderStatus } from '../../types';
 import { 
     getOwnerOrders, updateOrderStatus, getMenu, updateMenuAvailability, getSalesSummary, 
-    getMostSellingItems, getOrderStatusSummary, getStudentPointsList, getTodaysDashboardStats, getTodaysDetailedReport,
-    updateOwnerProfileImage
+    getMostSellingItems, getOrderStatusSummary, getStudentPointsList, getTodaysDashboardStats, getTodaysDetailedReport, mapDbOrderToAppOrder
 } from '../../services/mockApi';
+import { supabase } from '../../services/supabase';
 import { useAuth } from '../../context/AuthContext';
 
 // For xlsx library loaded from CDN
@@ -252,8 +252,27 @@ const OwnerDashboard: React.FC = () => {
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 30000);
-        return () => clearInterval(interval);
+
+        const channel = supabase.channel('public:orders');
+        channel
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+              console.log('Change received!', payload);
+              if (payload.eventType === 'INSERT') {
+                  const newOrder = mapDbOrderToAppOrder(payload.new);
+                  setOrders(prev => [newOrder, ...prev]);
+                   window.dispatchEvent(new CustomEvent('show-owner-toast', { detail: { message: `New Order from ${newOrder.studentName}!` } }));
+              } else if (payload.eventType === 'UPDATE') {
+                  const updatedOrder = mapDbOrderToAppOrder(payload.new);
+                  setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
+              }
+              // Re-fetch stats on any change for simplicity
+              getTodaysDashboardStats().then(setTodaysStats);
+          })
+          .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [fetchData]);
 
     const handleMenuAvailabilityChange = async (itemId: string, isAvailable: boolean) => {
@@ -346,8 +365,7 @@ const OwnerDashboard: React.FC = () => {
             const compressedDataUrl = await processImage(sourceToProcess);
             if (!compressedDataUrl) throw new Error("Image processing failed.");
             
-            await updateOwnerProfileImage(user.id, compressedDataUrl);
-            updateUser({ profileImageUrl: compressedDataUrl });
+            await updateUser({ profileImageUrl: compressedDataUrl });
             
             closeProfileModal();
 

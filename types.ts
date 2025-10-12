@@ -2,6 +2,7 @@
 
 export enum Role {
   STUDENT = 'STUDENT',
+  // FIX: Corrected typo from CANTEETEN_OWNER to CANTEEN_OWNER
   CANTEEN_OWNER = 'CANTEEN_OWNER',
   ADMIN = 'ADMIN',
 }
@@ -10,7 +11,6 @@ export interface User {
   id: string;
   username: string;
   role: Role;
-  token: string;
   phone?: string;
   password?: string;
   email?: string;
@@ -22,6 +22,7 @@ export interface User {
   resetOtpExpires?: Date;
   canteenName?: string;
   idProofUrl?: string;
+  loyaltyPoints?: number;
 }
 
 export type DietaryTag = 'vegetarian' | 'vegan' | 'gluten-free';
@@ -164,17 +165,26 @@ export interface TodaysDetailedReport {
   }[];
 }
 
+// FIX: Add OwnerBankDetails and CanteenPhoto types for unused components to resolve build errors.
 export interface OwnerBankDetails {
-  accountNumber: string;
-  bankName: string;
-  ifscCode: string;
-  upiId?: string;
-  email: string;
-  phone: string;
+    accountNumber: string;
+    bankName: string;
+    ifscCode: string;
+    upiId?: string;
+    email: string;
+    phone: string;
 }
 
-// FIX: Add CanteenPhoto interface to support the gallery feature.
 export interface CanteenPhoto {
-  id: string;
-  data: string; // base64 data URL
+    id: string;
+    data: string; // can be URL or base64 data URL
+    uploadedAt: Date;
+}
+
+export interface AdminStats {
+  totalUsers: number;
+  totalStudents: number;
+  totalOwners: number;
+  pendingApprovals: number;
+  totalFeedbacks: number;
 }

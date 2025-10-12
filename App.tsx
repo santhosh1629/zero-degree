@@ -1,6 +1,5 @@
 
 
-
 import React, { useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -35,7 +34,6 @@ import DemoOrderCollectedPage from './pages/student/DemoOrderSuccessPage';
 // Canteen Owner pages
 import OwnerLayout from './pages/owner/OwnerLayout';
 import OwnerDashboard from './pages/owner/OwnerDashboard';
-import BankDetailsPage from './pages/owner/BankDetailsPage';
 import ScanQrPage from './pages/owner/ScanQrPage';
 import FoodPopularityPage from './pages/owner/FoodPopularityPage';
 import RewardsManagementPage from './pages/owner/RewardsManagementPage';
@@ -141,7 +139,6 @@ const AppRoutes = () => {
                 </ProtectedRoute>
             }>
                 <Route path="dashboard" element={<OwnerDashboard />} />
-                <Route path="bank-details" element={<BankDetailsPage />} />
                 <Route path="scan" element={<ScanQrPage />} />
                 <Route path="demo-orders" element={<DemoOrdersPage />} />
                 <Route path="popularity" element={<FoodPopularityPage />} />

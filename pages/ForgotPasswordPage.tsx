@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { requestPasswordReset, verifyOtpAndResetPassword } from '../services/mockApi';
+import { useAuth } from '../context/AuthContext';
 
 declare const gsap: any;
 
@@ -16,7 +16,8 @@ const ForgotPasswordPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
-
+    
+    const { requestPasswordReset, verifyOtpAndResetPassword } = useAuth();
     const cardRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
 
@@ -37,7 +38,6 @@ const ForgotPasswordPage: React.FC = () => {
         try {
             const response = await requestPasswordReset(phone);
             setSuccessMessage(response.message);
-            // Even if the user doesn't exist, we move to the next step to prevent user enumeration.
             setStep('enter_otp_and_password');
         } catch (err) {
             setError((err as Error).message);
@@ -107,7 +107,7 @@ const ForgotPasswordPage: React.FC = () => {
                 return (
                     <form onSubmit={handleResetPassword} className="space-y-4">
                          {successMessage && <p className="text-green-300 bg-green-500/20 p-3 rounded-md text-sm text-center">{successMessage}</p>}
-                         <p className="text-sm text-white/70">Enter the OTP sent to <span className="font-bold">{phone}</span> and set your new password. Check the console for the mock OTP.</p>
+                         <p className="text-sm text-white/70">Enter the OTP sent to <span className="font-bold">{phone}</span> and set your new password. You may need to check your email spam for the link if phone delivery fails.</p>
                         <div>
                             <label className="block text-white/80 font-semibold mb-2" htmlFor="otp">
                                 6-Digit OTP

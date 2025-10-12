@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { getOwnerBankDetails, requestSaveBankDetailsOtp, verifyOtpAndSaveBankDetails } from '../../services/mockApi';
 import type { OwnerBankDetails } from '../../types';
+import { useAuth } from '../../context/AuthContext';
 
 const initialFormState: OwnerBankDetails = {
     accountNumber: '',
@@ -12,6 +14,7 @@ const initialFormState: OwnerBankDetails = {
 };
 
 const BankDetailsPage: React.FC = () => {
+    const { user } = useAuth();
     const [initialDetails, setInitialDetails] = useState<OwnerBankDetails>(initialFormState);
     const [formData, setFormData] = useState<OwnerBankDetails>(initialFormState);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -23,8 +26,9 @@ const BankDetailsPage: React.FC = () => {
     const [otp, setOtp] = useState('');
 
     const fetchDetails = useCallback(async () => {
+        if (!user) return;
         try {
-            const details = await getOwnerBankDetails();
+            const details = await getOwnerBankDetails(user.id);
             setFormData(details);
             setInitialDetails(details);
         } catch (error) {
@@ -33,7 +37,7 @@ const BankDetailsPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [user]);
 
     useEffect(() => {
         fetchDetails();
@@ -71,10 +75,11 @@ const BankDetailsPage: React.FC = () => {
     
     const handleOtpVerification = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!user) return;
         setIsSubmitting(true);
         setStatusMessage({ type: 'info', text: 'Verifying OTP & Saving...' });
         try {
-            const updatedDetails = await verifyOtpAndSaveBankDetails(formData, otp);
+            const updatedDetails = await verifyOtpAndSaveBankDetails(formData, otp, user.id);
             setInitialDetails(updatedDetails);
             setShowOtpModal(false);
             setOtp('');

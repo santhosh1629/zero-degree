@@ -1,6 +1,8 @@
+
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+// import { supabase } from '../services/supabase'; // No longer needed for storage upload
 
 const RegisterOwnerPage: React.FC = () => {
     const [name, setName] = useState('');
@@ -8,12 +10,51 @@ const RegisterOwnerPage: React.FC = () => {
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
-    const [idProof, setIdProof] = useState<File | null>(null);
+    const [idProofUrl, setIdProofUrl] = useState<string | null>(null);
     const [agreedToTerms, setAgreedToTerms] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [isSubmitted, setIsSubmitted] = useState(false);
+    const [fileStatus, setFileStatus] = useState({ message: '', isError: false });
     const { registerOwner } = useAuth();
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files ? e.target.files[0] : null;
+        if (!file) {
+            setIdProofUrl(null);
+            setFileStatus({ message: '', isError: false });
+            return;
+        }
+
+        const fileSizeMB = file.size / 1024 / 1024;
+        const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+
+        if (fileSizeMB > 2) {
+            setIdProofUrl(null);
+            setFileStatus({ message: 'File is too large. Maximum size is 2 MB.', isError: true });
+            e.target.value = ''; // Clear the input
+            return;
+        }
+
+        if (!allowedTypes.includes(file.type)) {
+            setIdProofUrl(null);
+            setFileStatus({ message: 'Invalid file format. Please use .jpg, .png, or .pdf.', isError: true });
+            e.target.value = ''; // Clear the input
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+            setIdProofUrl(reader.result as string);
+            setFileStatus({ message: '✅ ID Proof processed successfully.', isError: false });
+        };
+        reader.onerror = (error) => {
+            console.error("File reading error:", error);
+            setIdProofUrl(null);
+            setFileStatus({ message: 'Error reading file.', isError: true });
+        };
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -26,6 +67,13 @@ const RegisterOwnerPage: React.FC = () => {
             setError("Please enter a valid 10-digit phone number.");
             return;
         }
+        if (!idProofUrl) {
+            setError("⚠️ Please upload a valid ID proof to continue.");
+            if (!fileStatus.message) {
+                 setFileStatus({ message: "⚠️ Please upload a valid ID proof to continue.", isError: true });
+            }
+            return;
+        }
         if (!agreedToTerms) {
             setError("You must agree to the Terms & Conditions and confirm your details.");
             return;
@@ -33,9 +81,7 @@ const RegisterOwnerPage: React.FC = () => {
 
         setLoading(true);
         try {
-            // In a real app, you'd upload the file and get a URL. Here we simulate it.
-            const mockIdProofUrl = idProof ? `https://images.unsplash.com/photo-1586511925558-a4c6376fe658?q=80&w=400` : '';
-            await registerOwner(name, email, phone, password, canteenName, mockIdProofUrl);
+            await registerOwner(name, email, phone, password, canteenName, idProofUrl);
             setIsSubmitted(true);
         } catch (err) {
             setError((err as Error).message);
@@ -74,8 +120,20 @@ const RegisterOwnerPage: React.FC = () => {
                             <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-Digit Phone Number" required className="input-field" />
                             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password (min. 6 characters)" required className="input-field" />
                             <div>
-                               <label htmlFor="id-proof" className="block text-sm font-medium text-gray-300 mb-2">ID Proof (Optional)</label>
-                                <input id="id-proof" type="file" onChange={(e) => setIdProof(e.target.files ? e.target.files[0] : null)} accept="image/*,.pdf" className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700" />
+                               <label htmlFor="id-proof" className="block text-sm font-medium text-gray-300 mb-2">Upload ID Proof (Aadhar / College ID / License)</label>
+                                <input 
+                                    id="id-proof" 
+                                    type="file" 
+                                    onChange={handleFileChange} 
+                                    accept="image/jpeg,image/png,application/pdf" 
+                                    required 
+                                    className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700" 
+                                />
+                                {fileStatus.message && (
+                                    <p className={`text-xs mt-2 ${fileStatus.isError ? 'text-red-400' : 'text-green-400'}`}>
+                                        {fileStatus.message}
+                                    </p>
+                                )}
                             </div>
                              <div className="flex items-start space-x-2 pt-2">
                                 <input
@@ -96,7 +154,7 @@ const RegisterOwnerPage: React.FC = () => {
 
                             {error && <p className="text-red-400 text-sm text-center">{error}</p>}
                             
-                            <button type="submit" disabled={loading || !agreedToTerms} className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg shadow-[0_5px_15px_rgba(99,102,241,0.3)] transition-all transform hover:-translate-y-1 active:scale-95 disabled:bg-indigo-400/50 disabled:shadow-none disabled:transform-none disabled:cursor-not-allowed">
+                            <button type="submit" disabled={loading || !agreedToTerms || !idProofUrl} className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg shadow-[0_5px_15px_rgba(99,102,241,0.3)] transition-all transform hover:-translate-y-1 active:scale-95 disabled:bg-indigo-400/50 disabled:shadow-none disabled:transform-none disabled:cursor-not-allowed">
                                 {loading ? 'Submitting...' : 'Register'}
                             </button>
                         </form>

@@ -1,7 +1,6 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-// Fix: Import API functions that were missing from mockApi.ts.
 import { getCanteenPhotos, addCanteenPhoto, deleteCanteenPhoto, updateCanteenPhoto } from '../../services/mockApi';
-// Fix: Import CanteenPhoto type from the central types file.
 import type { CanteenPhoto } from '../../types';
 
 const ReplaceIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M20 20v-5h-5M4 20h5v-5M20 4h-5v5" /></svg>);
@@ -64,7 +63,7 @@ const CanteenGalleryPage: React.FC = () => {
         setError('');
         try {
             const newPhoto = await addCanteenPhoto(selectedFile);
-            setPhotos(prev => [...prev, newPhoto]);
+            setPhotos(prev => [newPhoto, ...prev]);
             setSelectedFile(null);
             setPreviewUrl(null);
         } catch (err) {
@@ -122,7 +121,6 @@ const CanteenGalleryPage: React.FC = () => {
                         <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-600 border-dashed rounded-md">
                             <div className="space-y-1 text-center">
                                 <svg className="mx-auto h-12 w-12 text-gray-500" stroke="currentColor" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                                    {/* FIX: Replaced corrupted SVG path data with a complete one. */}
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                                 <div className="flex text-sm text-gray-500">
@@ -194,5 +192,4 @@ const CanteenGalleryPage: React.FC = () => {
         </div>
     );
 };
-// Fix: Add missing default export.
 export default CanteenGalleryPage;

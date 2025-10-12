@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { getMenu, addMenuItem, updateMenuItem, removeMenuItem } from '../../services/mockApi';
+import { useAuth } from '../../context/AuthContext';
 import type { MenuItem } from '../../types';
 
 type FormState = {
@@ -26,19 +27,24 @@ const processAndCompressImage = (file: File): Promise<string> => {
             img.src = event.target?.result as string;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 250;
-                
-                const scaleSize = MAX_WIDTH / img.width;
-                canvas.width = MAX_WIDTH;
-                canvas.height = img.height * scaleSize;
+                const MAX_WIDTH = 800; // Increased from 250 for better quality
+
+                if (img.width > MAX_WIDTH) {
+                    const scaleSize = MAX_WIDTH / img.width;
+                    canvas.width = MAX_WIDTH;
+                    canvas.height = img.height * scaleSize;
+                } else {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                }
 
                 const ctx = canvas.getContext('2d');
                 if (!ctx) return reject(new Error('Canvas context failed'));
 
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 
-                // Use a reasonable quality for compression to keep file size low
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.7); 
+                // Use a higher quality setting for jpeg compression
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.85); // Increased quality from 0.7
                 resolve(dataUrl);
             };
             img.onerror = reject;
@@ -47,6 +53,39 @@ const processAndCompressImage = (file: File): Promise<string> => {
     });
 };
 
+const AddItemCard: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+    <div className="flex items-center justify-center">
+        <button
+            onClick={onClick}
+            className="group flex flex-col items-center justify-center w-full h-full min-h-[280px] bg-gray-800/50 border-2 border-dashed border-gray-600 rounded-2xl text-gray-400 hover:border-indigo-500 hover:text-indigo-400 transition-all duration-300 shadow-lg hover:shadow-indigo-500/20"
+        >
+            <svg className="w-12 h-12 mb-2 transition-transform group-hover:scale-110 group-hover:rotate-12 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            <span className="font-bold text-lg">Add New Food Item</span>
+        </button>
+    </div>
+);
+
+const OwnerMenuItemCard: React.FC<{ item: MenuItem; onEdit: (item: MenuItem) => void; onDelete: (itemId: string) => void; }> = ({ item, onEdit, onDelete }) => (
+     <div className={`bg-gray-800 rounded-2xl shadow-md border border-gray-700 overflow-hidden flex flex-col transition-all duration-300 ${!item.isAvailable ? 'opacity-60' : ''}`}>
+        <div className="relative">
+            <img src={item.imageUrl} alt={item.name} className={`w-full h-40 object-cover ${!item.isAvailable ? 'grayscale' : ''}`} />
+             <span className={`absolute top-2 left-2 text-xs font-bold px-2 py-1 rounded-full text-white ${item.isAvailable ? 'bg-green-600/80' : 'bg-red-600/80'} backdrop-blur-sm`}>
+                {item.isAvailable ? 'AVAILABLE' : 'UNAVAILABLE'}
+            </span>
+        </div>
+        <div className="p-4 flex-grow flex flex-col">
+            <h3 className="font-bold text-gray-200 flex-grow">{item.emoji} {item.name}</h3>
+            <p className="font-bold text-indigo-400 text-lg mt-1">₹{item.price.toFixed(2)}</p>
+        </div>
+        <div className="bg-gray-700/50 p-2 flex justify-end gap-2">
+            <button onClick={() => onEdit(item)} className="text-sm bg-gray-600 text-white font-semibold px-3 py-1.5 rounded-md hover:bg-gray-500 transition-colors">Edit</button>
+            <button onClick={() => onDelete(item.id)} className="text-sm bg-red-800 text-white font-semibold px-3 py-1.5 rounded-md hover:bg-red-700 transition-colors">Delete</button>
+        </div>
+    </div>
+);
+
 
 const DailySpecialsPage: React.FC = () => {
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -54,6 +93,7 @@ const DailySpecialsPage: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
     const [formData, setFormData] = useState<FormState>(initialFormState);
+    const { user } = useAuth();
     
     const [isProcessingImage, setIsProcessingImage] = useState(false);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -62,14 +102,16 @@ const DailySpecialsPage: React.FC = () => {
 
     const fetchMenu = useCallback(async () => {
         try {
-            setLoading(true);
+            // No need to set loading on refetch
             const data = await getMenu();
             setMenuItems(data);
         } catch (error) { console.error("Failed to fetch menu", error); } 
-        finally { setLoading(false); }
     }, []);
 
-    useEffect(() => { fetchMenu(); }, [fetchMenu]);
+    useEffect(() => {
+        setLoading(true);
+        fetchMenu().finally(() => setLoading(false));
+    }, [fetchMenu]);
     
     const regularMenuItems = useMemo(() => menuItems.filter(item => !item.isCombo), [menuItems]);
 
@@ -136,7 +178,9 @@ const DailySpecialsPage: React.FC = () => {
             setImagePreview(null);
         } finally {
             setIsProcessingImage(false);
-            URL.revokeObjectURL(previewUrl); // Clean up blob URL after processing
+            if (previewUrl && !(editingItem && previewUrl === editingItem.imageUrl)) { // Avoid revoking original URL
+               URL.revokeObjectURL(previewUrl);
+            }
         }
     };
 
@@ -151,23 +195,36 @@ const DailySpecialsPage: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!user) {
+            console.error("User not authenticated");
+            return;
+        }
         if (formData.price === '' || !formData.imageUrl) {
-            // Add a check for imageUrl to ensure processing is complete or an image was loaded
             return;
         }
         const comboItems = formData.isCombo ? formData.comboItemIds.map(id => ({ id, name: regularMenuItems.find(i => i.id === id)?.name || 'Unknown' })) : undefined;
-        const itemData: Partial<MenuItem> = { ...formData, price: formData.price, comboItems };
+        const itemData: Partial<MenuItem> & { price: number } = { ...formData, price: formData.price, comboItems };
 
         try {
-            if (editingItem) await updateMenuItem(editingItem.id, itemData);
-            else await addMenuItem(itemData);
-            fetchMenu(); handleCloseModal();
+            if (editingItem) {
+                await updateMenuItem(editingItem.id, itemData);
+            } else {
+                await addMenuItem(itemData, user.id);
+            }
+            fetchMenu();
+            handleCloseModal();
+            window.dispatchEvent(new CustomEvent('show-owner-toast', { detail: { message: `Food item ${editingItem ? 'updated' : 'added'} successfully!` } }));
+
         } catch (error) { console.error("Failed to save menu item", error); }
     };
     
     const handleDelete = async (itemId: string) => {
         if (window.confirm("Are you sure you want to delete this menu item?")) {
-            try { await removeMenuItem(itemId); fetchMenu(); } 
+            try { 
+                await removeMenuItem(itemId); 
+                fetchMenu();
+                window.dispatchEvent(new CustomEvent('show-owner-toast', { detail: { message: 'Item deleted.' } }));
+            } 
             catch (error) { console.error("Failed to delete menu item", error); }
         }
     }
@@ -178,45 +235,18 @@ const DailySpecialsPage: React.FC = () => {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-4xl font-bold text-gray-200">Manage Menu 📋</h1>
-                <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white font-bold py-2 px-5 rounded-lg hover:bg-indigo-700 transition-colors shadow-md hover:shadow-lg">
-                    + Add New Item
-                </button>
             </div>
 
-            <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-700">
-                        <thead className="bg-gray-700/50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Name</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Price</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-gray-800 divide-y divide-gray-700">
-                            {menuItems.map(item => (
-                                <tr key={item.id} className="hover:bg-gray-700/50">
-                                    <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-200">
-                                        {item.emoji} {item.name}
-                                        {item.isCombo && <span className="ml-2 text-xs font-semibold bg-indigo-500 text-white px-2 py-1 rounded-full">COMBO</span>}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-gray-300">₹{item.price.toFixed(2)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${item.isAvailable ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
-                                            {item.isAvailable ? 'Available' : 'Unavailable'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <button onClick={() => handleOpenModal(item)} className="text-indigo-400 hover:text-indigo-300 font-semibold">Edit</button>
-                                        <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-red-400 ml-4 font-semibold">Delete</button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                     {menuItems.length === 0 && <p className="text-center text-gray-400 py-4">No menu items found. Add one to get started!</p>}
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <AddItemCard onClick={() => handleOpenModal()} />
+                {menuItems.map(item => (
+                    <OwnerMenuItemCard 
+                        key={item.id} 
+                        item={item}
+                        onEdit={handleOpenModal}
+                        onDelete={handleDelete}
+                    />
+                ))}
             </div>
 
             {isModalOpen && (

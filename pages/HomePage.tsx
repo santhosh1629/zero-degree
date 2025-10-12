@@ -54,23 +54,26 @@ const HomePage: React.FC = () => {
             <DynamicBackground />
             <div className="absolute inset-0 z-10 bg-black/50"></div>
 
-            <div aria-hidden="true" className="absolute top-1/4 left-5 sm:left-10 opacity-70 w-24 h-24 hidden lg:block animate-float" style={{animationDuration: '7s'}}>
+            {/* Adjusted SVG characters for better responsiveness */}
+            <div aria-hidden="true" className="absolute top-1/4 left-5 sm:left-10 opacity-70 w-20 h-20 sm:w-24 sm:h-24 hidden md:block animate-float" style={{animationDuration: '7s'}}>
                 <SamosaFighter />
             </div>
-            <div aria-hidden="true" className="absolute bottom-1/4 right-5 sm:right-10 opacity-70 w-32 h-32 hidden lg:block animate-float animate-shake" style={{animationDuration: '5s', animationDelay: '1s'}}>
+            <div aria-hidden="true" className="absolute bottom-1/4 right-5 sm:right-10 opacity-70 w-24 h-24 sm:w-32 sm:h-32 hidden md:block animate-float" style={{animationDuration: '5s', animationDelay: '1s'}}>
                 <NoodlesBeast />
             </div>
-             <div aria-hidden="true" className="absolute bottom-1/2 left-1/4 opacity-60 w-20 h-20 hidden xl:block animate-float animate-spin" style={{animationDuration: '8s', animationDelay: '2s'}}>
+             <div aria-hidden="true" className="absolute bottom-1/2 left-1/4 opacity-60 w-20 h-20 hidden lg:block animate-float animate-spin" style={{animationDuration: '8s', animationDelay: '2s'}}>
                 <ParottaUfo />
             </div>
 
             <main className="relative z-20 flex flex-col items-center justify-center text-center">
-                 <h1 className="font-heading text-7xl md:text-8xl font-black" style={{ textShadow: '0 4px 15px rgba(0,0,0,0.5)' }}>
+                 {/* Responsive heading */}
+                 <h1 className="font-heading text-5xl sm:text-7xl lg:text-9xl font-black whitespace-nowrap" style={{ textShadow: '0 4px 15px rgba(0,0,0,0.5)' }}>
                     <span className="text-textPrimary">Zero</span>
                     <span className="text-primary animate-sparkle relative mx-1 md:mx-2">✦</span>
                     <span className="text-textPrimary">Degree</span>
                 </h1>
 
+                {/* Responsive typewriter */}
                 <div className="mt-4 h-10 text-center animate-fade-in-down" style={{animationDelay: '0.5s', textShadow: '0 2px 8px rgba(0,0,0,0.4)'}}>
                     <Typewriter
                         options={{
@@ -84,13 +87,13 @@ const HomePage: React.FC = () => {
                             loop: true,
                             delay: 75,
                             deleteSpeed: 50,
-                            wrapperClassName: "text-3xl font-black text-textSecondary",
-                            cursorClassName: "text-3xl font-black text-primary",
+                            wrapperClassName: "text-lg sm:text-xl lg:text-2xl font-black text-textSecondary",
+                            cursorClassName: "text-lg sm:text-xl lg:text-2xl font-black text-primary",
                         }}
                     />
                 </div>
                 
-                <div className="mt-12 flex flex-col sm:flex-row gap-6 w-full max-w-xs sm:max-w-md animate-fade-in-down" style={{animationDelay: '0.8s'}}>
+                <div className="mt-10 flex flex-col sm:flex-row gap-6 w-full max-w-xs sm:max-w-md animate-fade-in-down" style={{animationDelay: '0.8s'}}>
                     <button
                         onClick={() => navigate('/login-student')}
                         className="btn-3d w-full bg-primary border-primary-dark text-background font-black py-3 px-4 rounded-xl shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-primary/40"
