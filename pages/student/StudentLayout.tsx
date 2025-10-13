@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import DynamicBackground from '../../components/student/DynamicBackground';
@@ -61,7 +62,7 @@ const ActiveOrderTracker: React.FC<{ order: Order }> = ({ order }) => {
             ${isPrepared ? 'bg-green-500/80 text-white' : 'bg-primary/80 text-background'}
             backdrop-blur-sm animate-fade-in-down shadow-lg
         `}>
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-2 text-center">
+            <div className="container mx-auto px-4 py-2 text-center">
                 {isPrepared && (
                     <p className="font-black">
                         🔥 Your order #{order.id.slice(-6)} is ready for pickup!
@@ -338,40 +339,46 @@ const CustomerLayout: React.FC = () => {
       </aside>
 
        {/* Header */}
-      <header className="bg-background/60 backdrop-blur-lg sticky top-0 z-40 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 border-b border-surface-light">
-        <div className="flex items-center gap-4">
-            <button onClick={() => setIsDrawerOpen(true)} className="text-gray-300 hover:text-white">
-              <MenuIcon />
+      <header className="bg-background/60 backdrop-blur-lg sticky top-0 z-40 h-16 border-b border-surface-light">
+        <div className="container mx-auto h-full flex items-center justify-between px-4">
+            <div className="flex items-center gap-4">
+                <button onClick={() => setIsDrawerOpen(true)} className="text-gray-300 hover:text-white">
+                  <MenuIcon />
+                </button>
+                <h1 className="text-xl font-black font-heading text-textPrimary" style={{textShadow: '0 2px 4px rgba(0,0,0,0.5)'}}>{greeting}</h1>
+            </div>
+             <button onClick={() => setShowLogoutConfirm(true)} className="text-gray-300 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors" aria-label="Logout">
+                <LogoutIcon />
             </button>
-            <h1 className="text-xl font-black font-heading text-textPrimary" style={{textShadow: '0 2px 4px rgba(0,0,0,0.5)'}}>{greeting}</h1>
         </div>
-         <button onClick={() => setShowLogoutConfirm(true)} className="text-gray-300 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors" aria-label="Logout">
-            <LogoutIcon />
-        </button>
       </header>
+      
+      {activeOrder && <ActiveOrderTracker order={activeOrder} />}
        
        {/* Desktop Primary Nav */}
-       <nav className="hidden sm:flex justify-center items-center gap-8 bg-background/70 backdrop-blur-lg py-3 sticky top-16 z-30 border-b border-surface-light shadow-md">
-            {primaryNavLinks.map(link => (
-                <NavLink
-                    key={link.to}
-                    to={link.to}
-                    className={({ isActive }) =>
-                        `flex items-center gap-2 font-semibold text-lg transition-colors pb-1 border-b-2 ${
-                        isActive ? 'border-primary text-primary' : 'border-transparent text-textSecondary hover:text-textPrimary'
-                        }`
-                    }
-                >
-                    <div className={link.to === '/customer/cart' && isCartAnimating ? 'animate-cart-bounce' : ''}>
-                        {link.icon}
-                    </div>
-                    <span>{link.label}</span>
-                </NavLink>
-            ))}
+       <nav className="hidden sm:flex bg-background/70 backdrop-blur-lg py-3 sticky top-16 z-30 border-b border-surface-light shadow-md">
+            <div className="container mx-auto flex justify-around items-center">
+                {primaryNavLinks.map(link => (
+                    <NavLink
+                        key={link.to}
+                        to={link.to}
+                        className={({ isActive }) =>
+                            `flex items-center gap-2 font-semibold text-lg transition-colors pb-1 border-b-2 ${
+                            isActive ? 'border-primary text-primary' : 'border-transparent text-textSecondary hover:text-textPrimary'
+                            }`
+                        }
+                    >
+                        <div className={link.to === '/customer/cart' && isCartAnimating ? 'animate-cart-bounce' : ''}>
+                            {link.icon}
+                        </div>
+                        <span>{link.label}</span>
+                    </NavLink>
+                ))}
+            </div>
         </nav>
 
         {/* Main Content */}
-        <main className="flex-grow w-full max-w-md mx-auto px-4 pt-6 pb-24 sm:pb-6">
+        <main className="flex-grow container mx-auto px-4 pt-6 pb-24 sm:pb-6">
             <div key={location.pathname} className="animate-fade-in-down">
                 <Outlet />
             </div>
@@ -431,9 +438,6 @@ const CustomerLayout: React.FC = () => {
                  </div>
              </div>
          )}
-         
-         {activeOrder && <ActiveOrderTracker order={activeOrder} />}
-
     </div>
   );
 };

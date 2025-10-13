@@ -291,11 +291,11 @@ const MenuPage: React.FC = () => {
     }, []);
 
     const handleCardClick = (itemId: string) => {
-        navigate(`/student/menu/${itemId}`);
+        navigate(`/customer/menu/${itemId}`);
     };
 
     const handleCarouselCardClick = (item: MenuItem, element: HTMLElement) => {
-        navigate(`/student/menu/${item.id}`);
+        navigate(`/customer/menu/${item.id}`);
     };
 
     const topSellingItems = useMemo(() => 
@@ -367,7 +367,7 @@ const MenuPage: React.FC = () => {
                          {showFavoritesOnly && <p className="text-textSecondary mt-2">Try removing the 'favorites only' filter.</p>}
                     </div>
                 ) : (
-                    <div ref={menuGridRef} className="grid grid-cols-2 gap-4">
+                    <div ref={menuGridRef} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                         {filteredMenu.map(item => (
                             <MenuItemCard key={item.id} item={item} onCardClick={handleCardClick} onToggleFavorite={handleToggleFavorite} onAddToCart={handleAddToCart} />
                         ))}
