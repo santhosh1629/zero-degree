@@ -1,4 +1,5 @@
 
+
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -27,13 +28,13 @@ const WelcomePage: React.FC = () => {
 
   const handleContinue = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    navigate('/student/menu');
+    navigate('/customer/menu');
   };
 
   useEffect(() => {
     // Auto-navigate after 3 seconds
     timerRef.current = setTimeout(() => {
-      navigate('/student/menu');
+      navigate('/customer/menu');
     }, 3000);
 
     // GSAP animations

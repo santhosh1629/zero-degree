@@ -101,6 +101,7 @@ const CartPage: React.FC = () => {
         if (!user) return;
         setIsPlacingOrder(true);
         try {
+            // FIX: Use studentId and studentName as expected by the updated function.
             const orderPayload = {
                 studentId: user.id, studentName: user.username,
                 items: cart.map(({ id, name, quantity, price, notes, imageUrl }) => ({ id, name, quantity, price, notes, imageUrl })),
@@ -108,7 +109,7 @@ const CartPage: React.FC = () => {
             };
             const order = await placeDemoOrder(orderPayload);
             updateCart([]);
-            navigate(`/student/demo-order-collected/${order.id}`);
+            navigate(`/customer/demo-order-collected/${order.id}`);
         } catch (error) {
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: (error as Error).message, type: 'payment-error' } }));
             setIsPlacingOrder(false);
@@ -118,6 +119,7 @@ const CartPage: React.FC = () => {
     const handleRealOrderPlacement = async (paymentId: string) => {
         if (!user) return;
         try {
+            // FIX: Use studentId and studentName as expected by the updated function.
             const orderPayload = {
                 studentId: user.id, studentName: user.username,
                 items: cart.map(({ id, name, quantity, price, notes, imageUrl }) => ({ id, name, quantity, price, notes, imageUrl })),
@@ -133,7 +135,7 @@ const CartPage: React.FC = () => {
                 transaction_id: paymentId,
             });
             updateCart([]);
-            navigate(`/student/order-success/${order.id}`, { state: { showSuccessToast: true } });
+            navigate(`/customer/order-success/${order.id}`, { state: { showSuccessToast: true } });
         } catch (error) {
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: (error as Error).message, type: 'payment-error' } }));
             setIsPlacingOrder(false);

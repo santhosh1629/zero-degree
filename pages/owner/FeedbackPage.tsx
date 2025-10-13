@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { getFeedbacks } from '../../services/mockApi';
 import type { Feedback } from '../../types';
@@ -18,7 +19,7 @@ const FeedbackCard: React.FC<{ feedback: Feedback }> = ({ feedback }) => {
             <div className="flex justify-between items-start">
                 <div>
                     <p className="font-bold text-lg text-gray-200">{feedback.itemName}</p>
-                    <p className="text-sm text-gray-400">Reviewed by: <span className="font-medium">{feedback.studentName}</span></p>
+                    <p className="text-sm text-gray-400">Reviewed by: <span className="font-medium">{feedback.customerName}</span></p>
                 </div>
                 <StarDisplay rating={feedback.rating} />
             </div>
@@ -95,7 +96,7 @@ const OwnerFeedbackPage: React.FC = () => {
     return (
         <div>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-                <h1 className="text-4xl font-bold text-gray-200">Student Feedback 🗣️</h1>
+                <h1 className="text-4xl font-bold text-gray-200">Customer Feedback 🗣️</h1>
                 <div className="flex items-center gap-2 mt-4 sm:mt-0">
                     <label htmlFor="sort-feedback" className="text-sm font-medium text-gray-300">Sort by:</label>
                     <select
@@ -119,7 +120,7 @@ const OwnerFeedbackPage: React.FC = () => {
             ) : (
                  <div className="text-center py-16 bg-gray-800 rounded-2xl shadow-md border border-gray-700">
                     <p className="text-xl font-semibold text-gray-200">No Feedback Yet!</p>
-                    <p className="text-gray-400 mt-2">When students submit feedback, it will appear here.</p>
+                    <p className="text-gray-400 mt-2">When customers submit feedback, it will appear here.</p>
                 </div>
             )}
         </div>

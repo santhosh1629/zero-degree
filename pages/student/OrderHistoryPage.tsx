@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Order, CartItem, MenuItem } from '../../types';
 import { OrderStatus } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+// FIX: Renamed getCustomerOrders to getStudentOrders to fix import error.
 import { getStudentOrders, getMenu } from '../../services/mockApi';
 
 const getCartFromStorage = (): CartItem[] => {
@@ -207,7 +208,7 @@ const OrderHistoryPage: React.FC = () => {
                 setTimeout(() => window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: `Some items were out of stock.`, type: 'stock-out' } })), 500);
             }
 
-            navigate('/student/cart');
+            navigate('/customer/cart');
         } else {
              window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'All items are currently out of stock.', type: 'stock-out' } }));
         }

@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 const FoodIcons = () => {
@@ -20,7 +21,7 @@ const FoodIcons = () => {
     return <div className="absolute inset-0 z-10">{items}</div>;
 };
 
-const StudentSilhouettes = () => (
+const CustomerSilhouettes = () => (
     <div className="absolute bottom-0 left-0 right-0 h-1/2 overflow-hidden pointer-events-none z-0">
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[1600px] h-[400px] opacity-15">
             <svg 
@@ -52,7 +53,7 @@ const DynamicBackground: React.FC = () => {
         <div className="fixed inset-0 -z-50 overflow-hidden bg-energetic-gradient bg-400 animate-gradient-fire">
             <div className="absolute inset-0 bg-black/30"></div>
             <FoodIcons />
-            <StudentSilhouettes />
+            <CustomerSilhouettes />
         </div>
     );
 };

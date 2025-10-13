@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
+// FIX: Use the renamed getStudentProfile function.
 import { getStudentProfile } from '../../services/mockApi';
+// FIX: Use the renamed StudentProfile type.
 import type { StudentProfile } from '../../types';
 import { Link } from 'react-router-dom';
 
@@ -162,7 +164,7 @@ const ProfilePage: React.FC = () => {
                                     <p className="text-2xl font-bold font-heading text-white">{profile.loyaltyPoints}</p>
                                 </div>
                             </div>
-                            <Link to="/student/rewards" className="bg-accent text-white font-bold font-heading py-2 px-4 rounded-lg hover:bg-red-700 transition-colors">
+                            <Link to="/customer/rewards" className="bg-accent text-white font-bold font-heading py-2 px-4 rounded-lg hover:bg-red-700 transition-colors">
                                 Redeem
                             </Link>
                         </div>

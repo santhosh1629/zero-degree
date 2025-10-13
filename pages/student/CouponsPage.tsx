@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { getAllUserCoupons } from '../../services/mockApi';
+// FIX: Use renamed function for consistency
+import { getAllStudentCoupons } from '../../services/mockApi';
 import type { Offer } from '../../types';
 import { useNavigate } from 'react-router-dom';
 
@@ -91,7 +92,7 @@ const CouponsPage: React.FC = () => {
             }
             try {
                 setLoading(true);
-                const allCoupons = await getAllUserCoupons(user.id);
+                const allCoupons = await getAllStudentCoupons(user.id);
                 setAvailableCoupons(allCoupons.filter(c => !c.isUsed));
                 setUsedCoupons(allCoupons.filter(c => c.isUsed));
             } catch (error) {

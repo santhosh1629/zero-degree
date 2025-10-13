@@ -1,8 +1,6 @@
 
-
 export enum Role {
   STUDENT = 'STUDENT',
-  // FIX: Corrected typo from CANTEETEN_OWNER to CANTEEN_OWNER
   CANTEEN_OWNER = 'CANTEEN_OWNER',
   ADMIN = 'ADMIN',
 }
@@ -37,7 +35,7 @@ export interface MenuItem {
   emoji?: string;
   averageRating?: number;
   favoriteCount?: number;
-  isFavorited?: boolean; // For student-specific view
+  isFavorited?: boolean; // For customer-specific view
   dietaryTags?: DietaryTag[];
   nutrition?: {
     calories: number;
@@ -66,7 +64,7 @@ export interface Order {
   id: string;
   studentId: string;
   studentName: string;
-  studentPhone?: string;
+  customerPhone?: string;
   items: {
     id: string;
     name: string;
@@ -112,9 +110,8 @@ export interface Offer {
     discountType: 'percentage' | 'fixed';
     discountValue: number;
     isUsed: boolean;
-    studentId: string; // Every coupon belongs to a student
+    studentId: string; // Every coupon belongs to a customer
     isReward?: boolean;
-    // FIX: Added isActive for owner-side offer management.
     isActive?: boolean;
 }
 
@@ -165,7 +162,6 @@ export interface TodaysDetailedReport {
   }[];
 }
 
-// FIX: Add OwnerBankDetails and CanteenPhoto types for unused components to resolve build errors.
 export interface OwnerBankDetails {
     accountNumber: string;
     bankName: string;
@@ -183,7 +179,7 @@ export interface CanteenPhoto {
 
 export interface AdminStats {
   totalUsers: number;
-  totalStudents: number;
+  totalCustomers: number;
   totalOwners: number;
   pendingApprovals: number;
   totalFeedbacks: number;

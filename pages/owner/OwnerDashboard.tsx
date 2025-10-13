@@ -1,5 +1,7 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+// FIX: Import renamed StudentPoints type
 import type { Order, MenuItem, SalesSummary, StudentPoints, TodaysDashboardStats } from '../../types';
 import { OrderStatus } from '../../types';
 import { 
@@ -136,7 +138,7 @@ const OrdersManager: React.FC<{orders: Order[], onStatusUpdate: () => void}> = (
                         <thead className="bg-gray-700/50">
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Order ID</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Student</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Customer</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Items</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
@@ -148,7 +150,7 @@ const OrdersManager: React.FC<{orders: Order[], onStatusUpdate: () => void}> = (
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">...{order.id.slice(-6)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm align-top">
                                         <div className="font-medium text-gray-200">{order.studentName}</div>
-                                        {order.studentPhone && <div className="text-gray-400">{order.studentPhone}</div>}
+                                        {order.customerPhone && <div className="text-gray-400">{order.customerPhone}</div>}
                                     </td>
                                     <td className="px-6 py-4 whitespace-normal text-sm text-gray-400 align-top">
                                         <ul className="list-disc list-inside space-y-1">
@@ -160,7 +162,7 @@ const OrdersManager: React.FC<{orders: Order[], onStatusUpdate: () => void}> = (
                                     <td className="px-6 py-4 whitespace-nowrap align-top"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(order.status)}`}>{order.status}</span></td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium align-top">
                                         {order.status === OrderStatus.PENDING && <button onClick={() => handleStatusUpdate(order.id, OrderStatus.PREPARED)} className="bg-blue-600 text-white font-semibold py-2 px-3 rounded-lg text-xs hover:bg-blue-700 transition-colors">Mark as Prepared</button>}
-                                        {order.status === OrderStatus.PREPARED && <p className="text-gray-400 text-xs">Waiting for student pickup...</p>}
+                                        {order.status === OrderStatus.PREPARED && <p className="text-gray-400 text-xs">Waiting for customer pickup...</p>}
                                     </td>
                                 </tr>
                             ))}
@@ -189,15 +191,15 @@ const AnalyticsView: React.FC<{ salesSummary: SalesSummary; mostSellingItems: { 
     </div>
 );
 
-const ManagementView: React.FC<{ menu: MenuItem[]; studentPoints: StudentPoints[]; onAvailabilityChange: (itemId: string, isAvailable: boolean) => void; }> = ({ menu, studentPoints, onAvailabilityChange }) => (
+const ManagementView: React.FC<{ menu: MenuItem[]; customerPoints: StudentPoints[]; onAvailabilityChange: (itemId: string, isAvailable: boolean) => void; }> = ({ menu, customerPoints, onAvailabilityChange }) => (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
             <h3 className="font-bold mb-4 text-gray-200">Menu Availability</h3>
             <ul className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollbar-thin">{menu.map(item => (<li key={item.id} className="flex justify-between items-center bg-gray-700/50 p-3 rounded-lg"><span className="text-gray-200">{item.name}</span><button onClick={() => onAvailabilityChange(item.id, !item.isAvailable)} className={`${item.isAvailable ? 'bg-indigo-600' : 'bg-gray-600'} relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none`} role="switch" aria-checked={item.isAvailable}><span className={`${item.isAvailable ? 'translate-x-6' : 'translate-x-1'} inline-block w-4 h-4 transform bg-white rounded-full transition-transform`}/></button></li>))}</ul>
         </div>
         <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
-            <h3 className="font-bold mb-4 text-gray-200">Student Loyalty Points</h3>
-            <ul className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollbar-thin">{studentPoints.map(sp => (<li key={sp.studentId} className="flex justify-between items-center bg-gray-700/50 p-3 rounded-lg"><span className="text-gray-200">{sp.studentName}</span><span className="font-bold text-amber-400">{sp.points} pts</span></li>))}</ul>
+            <h3 className="font-bold mb-4 text-gray-200">Customer Loyalty Points</h3>
+            <ul className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollbar-thin">{customerPoints.map(sp => (<li key={sp.studentId} className="flex justify-between items-center bg-gray-700/50 p-3 rounded-lg"><span className="text-gray-200">{sp.studentName}</span><span className="font-bold text-amber-400">{sp.points} pts</span></li>))}</ul>
         </div>
     </div>
 );
@@ -210,7 +212,7 @@ const OrderHistoryView: React.FC<{ orders: Order[] }> = ({ orders }) => {
         <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
             <h3 className="font-bold mb-4 text-gray-200">Completed/Cancelled Orders</h3>
             <div className="mb-4"><select value={filter} onChange={e => setFilter(e.target.value as any)} className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-2"><option value="all">All</option><option value={OrderStatus.COLLECTED}>Collected</option><option value={OrderStatus.CANCELLED}>Cancelled</option></select></div>
-            <div className="overflow-x-auto max-h-[60vh] scrollbar-thin pr-2">{filteredOrders.length > 0 ? <table className="min-w-full divide-y divide-gray-700"><thead className="bg-gray-700/50 sticky top-0"><tr><th className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Order ID</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Student</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Date</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Status</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Total</th></tr></thead><tbody className="bg-gray-800 divide-y divide-gray-700">{filteredOrders.map(order => (<tr key={order.id}><td className="px-4 py-2 text-sm text-gray-400">...{order.id.slice(-6)}</td><td className="px-4 py-2 text-sm text-gray-200">{order.studentName}</td><td className="px-4 py-2 text-sm text-gray-400">{new Date(order.timestamp).toLocaleDateString()}</td><td className="px-4 py-2"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(order.status)}`}>{order.status}</span></td><td className="px-4 py-2 text-sm font-semibold text-gray-200">₹{order.totalAmount.toFixed(2)}</td></tr>))}</tbody></table> : <p className="text-center text-gray-400 py-4">No historical orders found.</p>}</div>
+            <div className="overflow-x-auto max-h-[60vh] scrollbar-thin pr-2">{filteredOrders.length > 0 ? <table className="min-w-full divide-y divide-gray-700"><thead className="bg-gray-700/50 sticky top-0"><tr><th className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Order ID</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Customer</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Date</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Status</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Total</th></tr></thead><tbody className="bg-gray-800 divide-y divide-gray-700">{filteredOrders.map(order => (<tr key={order.id}><td className="px-4 py-2 text-sm text-gray-400">...{order.id.slice(-6)}</td><td className="px-4 py-2 text-sm text-gray-200">{order.studentName}</td><td className="px-4 py-2 text-sm text-gray-400">{new Date(order.timestamp).toLocaleDateString()}</td><td className="px-4 py-2"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(order.status)}`}>{order.status}</span></td><td className="px-4 py-2 text-sm font-semibold text-gray-200">₹{order.totalAmount.toFixed(2)}</td></tr>))}</tbody></table> : <p className="text-center text-gray-400 py-4">No historical orders found.</p>}</div>
         </div>
     );
 };
@@ -236,16 +238,16 @@ const OwnerDashboard: React.FC = () => {
     const [salesSummary, setSalesSummary] = useState<SalesSummary | null>(null);
     const [mostSellingItems, setMostSellingItems] = useState<{ name: string; count: number }[]>([]);
     const [orderStatusSummary, setOrderStatusSummary] = useState<{ name: string; value: number }[]>([]);
-    const [studentPoints, setStudentPoints] = useState<StudentPoints[]>([]);
+    const [customerPoints, setCustomerPoints] = useState<StudentPoints[]>([]);
 
     const fetchData = useCallback(async () => {
         try {
-            const [statsData, ordersData, menuData, salesData, sellingItemsData, statusSummaryData, studentPointsData] = await Promise.all([
+            const [statsData, ordersData, menuData, salesData, sellingItemsData, statusSummaryData, customerPointsData] = await Promise.all([
                 getTodaysDashboardStats(), getOwnerOrders(), getMenu(), getSalesSummary(), 
                 getMostSellingItems(), getOrderStatusSummary(), getStudentPointsList()
             ]);
             setTodaysStats(statsData); setOrders(ordersData); setMenu(menuData); setSalesSummary(salesData);
-            setMostSellingItems(sellingItemsData); setOrderStatusSummary(statusSummaryData); setStudentPoints(studentPointsData);
+            setMostSellingItems(sellingItemsData); setOrderStatusSummary(statusSummaryData); setCustomerPoints(customerPointsData);
         } catch (error) { console.error("Failed to fetch dashboard data", error); } 
         finally { setLoading(false); }
     }, []);
@@ -391,7 +393,7 @@ const OwnerDashboard: React.FC = () => {
         switch (activeTab) {
             case 'live': return <div className="space-y-6"><DailyStats stats={todaysStats} /><OrdersManager orders={orders} onStatusUpdate={fetchData} /></div>;
             case 'analytics': return <AnalyticsView salesSummary={salesSummary} mostSellingItems={mostSellingItems} orderStatusSummary={orderStatusSummary} />;
-            case 'management': return <ManagementView menu={menu} studentPoints={studentPoints} onAvailabilityChange={handleMenuAvailabilityChange} />;
+            case 'management': return <ManagementView menu={menu} customerPoints={customerPoints} onAvailabilityChange={handleMenuAvailabilityChange} />;
             case 'history': return <OrderHistoryView orders={orders} />;
             default: return null;
         }

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -5,7 +6,7 @@ import DynamicBackground from '../components/student/DynamicBackground';
 
 declare const gsap: any;
 
-const RegisterStudentPage: React.FC = () => {
+const RegisterCustomerPage: React.FC = () => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -41,7 +42,7 @@ const RegisterStudentPage: React.FC = () => {
     setLoading(true);
     try {
       await register(name, phone, password);
-      navigate('/student/welcome');
+      navigate('/customer/welcome');
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -116,7 +117,7 @@ const RegisterStudentPage: React.FC = () => {
               />
               <label htmlFor="terms" className="text-xs text-textSecondary">
                   I have read and agree to the{' '}
-                  <Link to="/terms?for=student" className="font-bold text-primary hover:underline">
+                  <Link to="/terms?for=customer" className="font-bold text-primary hover:underline">
                       Zero✦Degree Terms & Conditions (Customer).
                   </Link>
               </label>
@@ -134,7 +135,7 @@ const RegisterStudentPage: React.FC = () => {
         </form>
 
         <div className="text-center mt-6">
-            <Link to="/login-student" className="text-sm text-primary/80 hover:text-primary font-medium transition-colors">Already have an account? Login</Link>
+            <Link to="/login-customer" className="text-sm text-primary/80 hover:text-primary font-medium transition-colors">Already have an account? Login</Link>
         </div>
       </div>
     </div>
@@ -142,4 +143,4 @@ const RegisterStudentPage: React.FC = () => {
   );
 };
 
-export default RegisterStudentPage;
+export default RegisterCustomerPage;

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+// FIX: Use the renamed getStudentProfile function.
 import { getRewards, getStudentProfile, redeemReward } from '../../services/mockApi';
+// FIX: Use the renamed StudentProfile type.
 import type { Reward, StudentProfile } from '../../types';
 import { Link } from 'react-router-dom';
 
@@ -146,7 +148,7 @@ const RewardsPage: React.FC = () => {
                     <p className="text-lg font-semibold text-amber-300">Your Current Balance</p>
                     <p className="text-5xl font-black text-amber-400">{profile?.loyaltyPoints ?? 0} <span className="text-3xl font-bold">Points</span></p>
                 </div>
-                <Link to="/student/coupons" className="mt-4 sm:mt-0 bg-amber-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-amber-600 transition-colors">
+                <Link to="/customer/coupons" className="mt-4 sm:mt-0 bg-amber-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-amber-600 transition-colors">
                     View My Coupons
                 </Link>
             </div>

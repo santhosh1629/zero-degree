@@ -40,7 +40,7 @@ const FeedbackPage: React.FC = () => {
     useEffect(() => {
         const fetchMenuItems = async () => {
             try {
-                // Fetch menu without student ID for a generic list
+                // Fetch menu without customer ID for a generic list
                 const menuItems = await getMenu();
                 setMenu(menuItems);
             } catch (error) {
@@ -67,6 +67,7 @@ const FeedbackPage: React.FC = () => {
 
         setIsSubmitting(true);
         try {
+            // FIX: Use studentId property as expected by the updated function signature.
             await submitFeedback({ 
                 studentId: user.id, 
                 itemId: selectedItemId,

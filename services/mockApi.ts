@@ -1,7 +1,8 @@
+
 // This file now contains functions to interact with the Supabase backend.
 
 import { supabase } from './supabase';
-// FIX: Import new types to support mock functions for BankDetails and CanteenGallery pages.
+// FIX: Import renamed types
 import type { User, MenuItem, Order, OrderStatus, SalesSummary, Feedback, Offer, CartItem, StudentProfile, Reward, StudentPoints, TodaysDashboardStats, TodaysDetailedReport, AdminStats, OwnerBankDetails, CanteenPhoto } from '../types';
 import { Role as RoleEnum, OrderStatus as OrderStatusEnum } from '../types';
 
@@ -11,8 +12,10 @@ import { Role as RoleEnum, OrderStatus as OrderStatusEnum } from '../types';
 
 export const mapDbOrderToAppOrder = (dbOrder: any): Order => ({
     id: dbOrder.id,
+    // FIX: Map to studentId and studentName
     studentId: dbOrder.student_id,
     studentName: dbOrder.users?.username || dbOrder.student_name || 'N/A',
+    customerPhone: dbOrder.student_phone,
     items: dbOrder.items,
     totalAmount: dbOrder.total_amount,
     status: dbOrder.status,
@@ -55,6 +58,7 @@ const mapDbMenuToAppMenu = (dbMenu: any): MenuItem => ({
 
 const mapDbFeedbackToAppFeedback = (dbFeedback: any): Feedback => ({
     id: dbFeedback.id,
+    // FIX: Map to studentId and studentName
     studentId: dbFeedback.student_id,
     studentName: dbFeedback.student_name,
     itemId: dbFeedback.item_id,
@@ -71,6 +75,7 @@ const mapDbOfferToAppOffer = (dbOffer: any): Offer => ({
     discountType: dbOffer.discount_type,
     discountValue: dbOffer.discount_value,
     isUsed: dbOffer.is_used,
+    // FIX: Map to studentId
     studentId: dbOffer.student_id,
     isReward: dbOffer.is_reward,
     isActive: dbOffer.is_active,
@@ -98,6 +103,7 @@ export const getOwnerStatus = async (): Promise<{ isOnline: boolean }> => {
     return { isOnline: true };
 }
 
+// FIX: Rename customerId to studentId
 export const getMenu = async (studentId?: string): Promise<MenuItem[]> => {
     const { data: menuData, error: menuError } = await supabase.from('menu').select('*');
     if (menuError) throw menuError;
@@ -124,6 +130,7 @@ export const getMenu = async (studentId?: string): Promise<MenuItem[]> => {
     }));
 };
 
+// FIX: Rename customerId to studentId
 export const getMenuItemById = async (itemId: string, studentId?: string): Promise<MenuItem | undefined> => {
     const { data, error } = await supabase.from('menu').select('*').eq('id', itemId).single();
     if (error) throw error;
@@ -146,6 +153,7 @@ export const getMenuItemById = async (itemId: string, studentId?: string): Promi
     return item;
 };
 
+// FIX: Rename customerId to studentId
 export const toggleFavoriteItem = async (studentId: string, itemId: string): Promise<void> => {
     const { data: existing, error } = await supabase
         .from('student_favorites')
@@ -165,6 +173,7 @@ export const toggleFavoriteItem = async (studentId: string, itemId: string): Pro
     }
 };
 
+// FIX: Rename parameters to studentId/studentName
 export const placeOrder = async (orderData: { studentId: string; studentName: string; items: any[]; totalAmount: number; couponCode?: string, discountAmount?: number }): Promise<Order> => {
     const qrToken = JSON.stringify({ orderId: `temp-id-${Date.now()}`}); // Temp token
     const { data, error } = await supabase.from('orders').insert([
@@ -192,6 +201,7 @@ export const placeOrder = async (orderData: { studentId: string; studentName: st
     return mapDbOrderToAppOrder(updatedData);
 };
 
+// FIX: Rename to cancelStudentOrder and use studentId
 export const cancelStudentOrder = async (orderId: string, studentId: string): Promise<Order> => {
     const { data: order, error: fetchError } = await supabase.from('orders').select('total_amount').eq('id', orderId).single();
     if (fetchError || !order) throw new Error("Order not found");
@@ -242,15 +252,17 @@ export const getOrderById = async(orderId: string): Promise<Order> => {
     return mapDbOrderToAppOrder(data);
 }
 
+// FIX: Rename to getStudentOrders and use studentId
 export const getStudentOrders = async (studentId: string): Promise<Order[]> => {
     const { data, error } = await supabase.from('orders').select('*').eq('student_id', studentId).order('timestamp', { ascending: false });
     if (error) throw error;
     return data.map(mapDbOrderToAppOrder);
 };
 
+// FIX: Use studentId in parameter
 export const submitFeedback = async (feedbackData: { studentId: string; itemId: string; rating: number; comment?: string; }): Promise<Feedback> => {
     const { data: itemData } = await supabase.from('menu').select('name').eq('id', feedbackData.itemId).single();
-    const { data: studentData } = await supabase.from('users').select('username').eq('id', feedbackData.studentId).single();
+    const { data: customerData } = await supabase.from('users').select('username').eq('id', feedbackData.studentId).single();
 
     const { data, error } = await supabase.from('feedbacks').insert([
         {
@@ -259,7 +271,7 @@ export const submitFeedback = async (feedbackData: { studentId: string; itemId: 
             rating: feedbackData.rating,
             comment: feedbackData.comment,
             item_name: itemData?.name || 'Unknown Item',
-            student_name: studentData?.username || 'Anonymous',
+            student_name: customerData?.username || 'Anonymous',
         }
     ]).select().single();
 
@@ -275,6 +287,7 @@ export const getDemoMenu = async (): Promise<MenuItem[]> => {
     ];
 };
 
+// FIX: Use studentId and studentName
 export const placeDemoOrder = async (orderData: { studentId: string; studentName: string; items: any[]; totalAmount: number; }): Promise<Order> => {
     const orderId = `demo-order-${Date.now()}`;
     const qrToken = JSON.stringify({ orderId, isDemo: true });
@@ -345,7 +358,7 @@ export const removeOwnerAccount = async (userId: string): Promise<{ success: boo
 };
 
 export const getOwnerOrders = async (): Promise<Order[]> => {
-    const { data, error } = await supabase.from('orders').select('*').order('timestamp', { ascending: false });
+    const { data, error } = await supabase.from('orders').select('*, users(username, phone)').order('timestamp', { ascending: false });
     if (error) throw error;
     return data.map(mapDbOrderToAppOrder);
 };
@@ -353,8 +366,8 @@ export const getOwnerOrders = async (): Promise<Order[]> => {
 export const getOwnerDemoOrders = async (): Promise<Order[]> => {
     // This can be used to simulate demo orders for owners to see.
     return [
-        { id: 'demo-owner-1', studentId: 'demo-student', studentName: 'Rohan Sharma', studentPhone: '9876543210', items: [{id: 'd1', name: 'Demo Biryani', quantity: 1, price: 100, imageUrl: ''}], totalAmount: 100, status: OrderStatusEnum.COLLECTED, qrToken: '{"isDemo":true}', timestamp: new Date(), orderType: 'demo' },
-        { id: 'demo-owner-2', studentId: 'demo-student-2', studentName: 'Priya Mehta', studentPhone: '9876543211', items: [{id: 'd2', name: 'Demo Noodles', quantity: 2, price: 60, imageUrl: ''}], totalAmount: 120, status: OrderStatusEnum.COLLECTED, qrToken: '{"isDemo":true}', timestamp: new Date(Date.now() - 3600000), orderType: 'demo' },
+        { id: 'demo-owner-1', studentId: 'demo-customer', studentName: 'Rohan Sharma', customerPhone: '9876543210', items: [{id: 'd1', name: 'Demo Biryani', quantity: 1, price: 100, imageUrl: ''}], totalAmount: 100, status: OrderStatusEnum.COLLECTED, qrToken: '{"isDemo":true}', timestamp: new Date(), orderType: 'demo' },
+        { id: 'demo-owner-2', studentId: 'demo-customer-2', studentName: 'Priya Mehta', customerPhone: '9876543211', items: [{id: 'd2', name: 'Demo Noodles', quantity: 2, price: 60, imageUrl: ''}], totalAmount: 120, status: OrderStatusEnum.COLLECTED, qrToken: '{"isDemo":true}', timestamp: new Date(Date.now() - 3600000), orderType: 'demo' },
     ];
 };
 
@@ -468,8 +481,9 @@ export const getOrderStatusSummary = async (): Promise<{ name: string; value: nu
     return Array.from(statusCounts.entries()).map(([name, value]) => ({ name, value }));
 };
 
+// FIX: Rename to getStudentPointsList and map to StudentPoints type
 export const getStudentPointsList = async (): Promise<StudentPoints[]> => {
-    const { data, error } = await supabase.from('users').select('id, username, loyalty_points').eq('role', 'STUDENT').order('loyalty_points', { ascending: false }).limit(20);
+    const { data, error } = await supabase.from('users').select('id, username, loyalty_points').eq('role', 'CUSTOMER').order('loyalty_points', { ascending: false }).limit(20);
     if (error) throw error;
     return data.map(u => ({ studentId: u.id, studentName: u.username, points: u.loyalty_points }));
 };
@@ -495,17 +509,21 @@ export const updateOfferStatus = async (offerId: string, isActive: boolean): Pro
     if (error) throw error;
 };
 
+// FIX: Rename param to studentId
 export const getOffers = async (studentId: string): Promise<Offer[]> => {
     const { data, error } = await supabase.from('offers').select('*').eq('student_id', studentId);
     if (error) throw error;
     return data.map(mapDbOfferToAppOffer);
 };
-export const getAllUserCoupons = async (studentId: string): Promise<Offer[]> => {
+
+// FIX: Rename to getAllStudentCoupons and use studentId
+export const getAllStudentCoupons = async (studentId: string): Promise<Offer[]> => {
     const { data, error } = await supabase.from('offers').select('*').eq('student_id', studentId);
     if (error) throw error;
     return data.map(mapDbOfferToAppOffer);
 };
 
+// FIX: Rename to getStudentProfile, use studentId, and return StudentProfile
 export const getStudentProfile = async (studentId: string): Promise<StudentProfile> => {
     const { data: userData, error: userError } = await supabase.from('users').select('username, phone, loyalty_points').eq('id', studentId).single();
     if (userError) throw userError;
@@ -574,6 +592,7 @@ export const deleteReward = async (rewardId: string): Promise<void> => {
     if (error) throw error;
 };
 
+// FIX: Rename param to studentId
 export const redeemReward = async (studentId: string, rewardId: string): Promise<Offer> => {
     const { data: reward, error: rewardError } = await supabase.from('rewards').select('*').eq('id', rewardId).single();
     if (rewardError || !reward) throw new Error('Reward not found.');
@@ -651,6 +670,7 @@ export const removeMenuItem = async (itemId: string): Promise<void> => {
     const { error } = await supabase.from('menu').delete().eq('id', itemId);
     if (error) throw error;
 };
+// FIX: Rename param to studentId
 export const getStudentPastRewardCoupons = async (studentId: string): Promise<(Offer & { awardedDate: Date; })[]> => ([]);
 
 // FIX: Add mock implementations for Bank Details and Canteen Gallery pages to resolve build errors.
@@ -718,11 +738,12 @@ export const updateCanteenPhoto = async (photoId: string, file: File): Promise<C
     return Promise.resolve(canteenPhotos[photoIndex]);
 };
 
+// FIX: Rename param to studentId
 export const applyCoupon = async (code: string, subtotal: number, studentId: string): Promise<number> => (0);
 
 export const getAdminDashboardStats = async (): Promise<AdminStats> => {
     const { count: totalUsers, error: e1 } = await supabase.from('users').select('*', { count: 'exact', head: true });
-    const { count: totalStudents, error: e2 } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'STUDENT');
+    const { count: totalCustomers, error: e2 } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'CUSTOMER');
     const { count: totalOwners, error: e3 } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'CANTEEN_OWNER');
     const { count: pendingApprovals, error: e4 } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('approval_status', 'pending');
     const { count: totalFeedbacks, error: e5 } = await supabase.from('feedbacks').select('*', { count: 'exact', head: true });
@@ -734,7 +755,7 @@ export const getAdminDashboardStats = async (): Promise<AdminStats> => {
     
     return {
         totalUsers: totalUsers || 0,
-        totalStudents: totalStudents || 0,
+        totalCustomers: totalCustomers || 0,
         totalOwners: totalOwners || 0,
         pendingApprovals: pendingApprovals || 0,
         totalFeedbacks: totalFeedbacks || 0,

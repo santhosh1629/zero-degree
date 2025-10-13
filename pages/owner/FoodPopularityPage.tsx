@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { getFoodPopularityStats } from '../../services/mockApi';
 import type { MenuItem } from '../../types';
@@ -58,7 +59,7 @@ const FoodPopularityPage: React.FC = () => {
         <div>
             <h1 className="text-4xl font-bold text-gray-200 mb-6">Food Popularity ❤️</h1>
             <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
-                <p className="mb-6 text-gray-400">Here's how students are rating and favoriting your menu items. Use this data to fine-tune your offerings!</p>
+                <p className="mb-6 text-gray-400">Here's how customers are rating and favoriting your menu items. Use this data to fine-tune your offerings!</p>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-700">
                         <thead className="bg-gray-700/50">

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { MenuItem, CartItem } from '../../types';
@@ -6,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../services/supabase';
 
 declare const gsap: any;
+declare const ScrollTrigger: any;
 
 const getCartFromStorage = (): CartItem[] => {
     const cart = localStorage.getItem('cart');
@@ -108,9 +110,9 @@ const MenuItemCard: React.FC<{
     };
     
     return (
-        <div onClick={() => isAvailable ? onCardClick(id) : window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Currently Out of Stock!', type: 'stock-out' } }))} className={`bg-surface/50 backdrop-blur-lg border border-surface-light rounded-2xl shadow-lg overflow-hidden transition-all duration-300 group hover:shadow-2xl hover:bg-surface-light/30 hover:-translate-y-1 ${!isAvailable ? 'opacity-50 grayscale cursor-not-allowed' : 'cursor-pointer'}`}>
+        <div onClick={() => isAvailable ? onCardClick(id) : window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Currently Out of Stock!', type: 'stock-out' } }))} className={`bg-surface/50 backdrop-blur-lg border border-surface-light rounded-2xl shadow-lg overflow-hidden transition-transform,box-shadow,background-color duration-300 hover:shadow-2xl hover:bg-surface-light/30 hover:-translate-y-1 ${!isAvailable ? 'opacity-50 grayscale cursor-not-allowed' : 'cursor-pointer'}`}>
             <div className="relative">
-                <img src={imageUrl} alt={name} className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300" />
+                <img src={imageUrl} alt={name} className="w-full h-40 object-cover" />
                 <div className="absolute top-2 left-2 flex flex-col gap-1">
                     <span className={`text-xs font-bold px-2 py-1 rounded-full text-white ${isAvailable ? 'bg-green-600/80' : 'bg-red-600/80'} backdrop-blur-sm`}>
                         {isAvailable ? 'AVAILABLE' : 'UNAVAILABLE'}
@@ -171,6 +173,7 @@ const MenuPage: React.FC = () => {
     
     const { user } = useAuth();
     const navigate = useNavigate();
+    const menuGridRef = useRef<HTMLDivElement>(null);
 
     const fetchPageData = useCallback(async () => {
         if (user) {
@@ -219,6 +222,45 @@ const MenuPage: React.FC = () => {
         }
         setFilteredMenu(items);
     }, [menu, searchTerm, showFavoritesOnly]);
+
+    // GSAP Scroll Animation Effect
+    useEffect(() => {
+        if (loading || typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined' || !menuGridRef.current) return;
+
+        gsap.registerPlugin(ScrollTrigger);
+        // FIX: Remove type argument from untyped function call and cast the result instead.
+        const cards = gsap.utils.toArray(menuGridRef.current.children) as HTMLElement[];
+        if (cards.length === 0) return;
+
+        const ctx = gsap.context(() => {
+            // Set initial state for cards
+            gsap.set(cards, { opacity: 0, y: 50, scale: 0.9 });
+
+            ScrollTrigger.batch(cards, {
+                start: "top 90%",
+                onEnter: batch => gsap.to(batch, {
+                    opacity: 1,
+                    y: 0,
+                    scale: 1,
+                    duration: 0.6,
+                    stagger: { each: 0.1, from: "start" },
+                    ease: 'power3.out',
+                    overwrite: true
+                }),
+                onLeaveBack: batch => gsap.set(batch, {
+                    opacity: 0,
+                    y: 50,
+                    scale: 0.9,
+                    overwrite: true
+                }),
+            });
+        }, menuGridRef);
+
+        return () => {
+            ctx.revert();
+            ScrollTrigger.getAll().forEach(trigger => trigger.kill());
+        };
+    }, [filteredMenu, loading]);
 
     const handleToggleFavorite = async (itemId: string, isFavorited: boolean) => {
         if (!user) return;
@@ -325,7 +367,7 @@ const MenuPage: React.FC = () => {
                          {showFavoritesOnly && <p className="text-textSecondary mt-2">Try removing the 'favorites only' filter.</p>}
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    <div ref={menuGridRef} className="grid grid-cols-2 gap-4">
                         {filteredMenu.map(item => (
                             <MenuItemCard key={item.id} item={item} onCardClick={handleCardClick} onToggleFavorite={handleToggleFavorite} onAddToCart={handleAddToCart} />
                         ))}

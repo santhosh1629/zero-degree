@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import DynamicBackground from '../../components/student/DynamicBackground';
 import { useAuth } from '../../context/AuthContext';
+// FIX: Renamed getCustomerOrders to getStudentOrders to fix import error.
 import { getStudentOrders } from '../../services/mockApi';
 import { Order, OrderStatus } from '../../types';
 
@@ -106,7 +107,7 @@ const greetings = [
     "FEED THE BEAST.",
 ];
 
-const StudentLayout: React.FC = () => {
+const CustomerLayout: React.FC = () => {
   const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -153,13 +154,13 @@ const StudentLayout: React.FC = () => {
     setCenterToast({ id: Date.now(), message: 'Logged out successfully!', type: 'logout-success' });
     setTimeout(() => {
         logout();
-        navigate('/login-student');
+        navigate('/login-customer');
     }, 3000);
   };
   
   const handleStartDemo = () => {
     setShowDemoModal(false);
-    navigate('/student/demo-menu');
+    navigate('/customer/demo-menu');
   };
 
   const handleSkipDemo = async () => {
@@ -170,16 +171,16 @@ const StudentLayout: React.FC = () => {
   };
 
   const primaryNavLinks = [
-    { to: "/student/menu", icon: <MenuBoardIcon />, label: "Menu" },
-    { to: "/student/cart", icon: <CartIcon />, label: "Cart/QR" },
-    { to: "/student/history", icon: <HistoryIcon />, label: "History" },
+    { to: "/customer/menu", icon: <MenuBoardIcon />, label: "Menu" },
+    { to: "/customer/cart", icon: <CartIcon />, label: "Cart/QR" },
+    { to: "/customer/history", icon: <HistoryIcon />, label: "History" },
   ];
   
   const drawerNavLinks = [
-    { to: "/student/profile", icon: <ProfileIcon />, label: "Profile" },
-    { to: "/student/rewards", icon: <RewardsIcon />, label: "Rewards" },
-    { to: "/student/coupons", icon: <CouponsIcon />, label: "Coupons" },
-    { to: "/student/feedback", icon: <FeedbackDrawerIcon />, label: "Feedback" },
+    { to: "/customer/profile", icon: <ProfileIcon />, label: "Profile" },
+    { to: "/customer/rewards", icon: <RewardsIcon />, label: "Rewards" },
+    { to: "/customer/coupons", icon: <CouponsIcon />, label: "Coupons" },
+    { to: "/customer/feedback", icon: <FeedbackDrawerIcon />, label: "Feedback" },
   ];
   
   const DrawerNavLink: React.FC<{ to: string, icon: React.ReactNode, label: string }> = ({ to, icon, label }) => (
@@ -361,7 +362,7 @@ const StudentLayout: React.FC = () => {
                         }`
                     }
                 >
-                    <div className={link.to === '/student/cart' && isCartAnimating ? 'animate-cart-bounce' : ''}>
+                    <div className={link.to === '/customer/cart' && isCartAnimating ? 'animate-cart-bounce' : ''}>
                         {link.icon}
                     </div>
                     <span>{link.label}</span>
@@ -370,7 +371,7 @@ const StudentLayout: React.FC = () => {
         </nav>
 
         {/* Main Content */}
-        <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8 pb-24 sm:pb-8">
+        <main className="flex-grow w-full max-w-md mx-auto px-4 pt-6 pb-24 sm:pb-6">
             <div key={location.pathname} className="animate-fade-in-down">
                 <Outlet />
             </div>
@@ -389,7 +390,7 @@ const StudentLayout: React.FC = () => {
                             }`
                         }
                     >
-                        <div className={link.to === '/student/cart' && isCartAnimating ? 'animate-cart-bounce' : ''}>
+                        <div className={link.to === '/customer/cart' && isCartAnimating ? 'animate-cart-bounce' : ''}>
                             {link.icon}
                         </div>
                         <span className="text-xs font-medium">{link.label}</span>
@@ -437,4 +438,4 @@ const StudentLayout: React.FC = () => {
   );
 };
 
-export default StudentLayout;
+export default CustomerLayout;

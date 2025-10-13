@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Header from '../../components/common/Header';
@@ -93,7 +94,7 @@ const AdminDashboard: React.FC = () => {
                 {/* Stats Section */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
                     <StatCard title="Total Users" value={stats?.totalUsers ?? 0} icon="👥" />
-                    <StatCard title="Students" value={stats?.totalStudents ?? 0} icon="🎓" />
+                    <StatCard title="Customers" value={stats?.totalCustomers ?? 0} icon="🎓" />
                     <StatCard title="Owners" value={stats?.totalOwners ?? 0} icon="🏠" />
                     <StatCard title="Pending Approvals" value={stats?.pendingApprovals ?? 0} icon="⏳" />
                     <StatCard title="Total Feedbacks" value={stats?.totalFeedbacks ?? 0} icon="💬" />
@@ -111,7 +112,7 @@ const AdminDashboard: React.FC = () => {
                     
                     {/* Feedback Viewer */}
                     <div className="bg-gray-800 p-6 rounded-lg shadow-md animate-pop-in" style={{ animationDelay: '100ms' }}>
-                         <h2 className="text-2xl font-bold mb-4 text-indigo-400">Recent Student Feedback</h2>
+                         <h2 className="text-2xl font-bold mb-4 text-indigo-400">Recent Customer Feedback</h2>
                          <div className="space-y-4 max-h-96 overflow-y-auto scrollbar-thin pr-2">
                             {feedbacks.slice(0, 10).map(fb => (
                                 <div key={fb.id} className="p-3 bg-gray-700/50 rounded-md">

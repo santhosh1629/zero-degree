@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { verifyQrCodeAndCollectOrder } from '../../services/mockApi';
 import type { Order } from '../../types';
@@ -73,7 +74,7 @@ const ScanQrPage: React.FC = () => {
                 <>
                     <div id="qr-reader-container" className="w-full max-w-sm mx-auto h-auto rounded-lg mb-4 border-2 border-dashed border-gray-600 overflow-hidden"></div>
                     <p className="text-center text-gray-400">
-                        Point your camera at the student's QR code.
+                        Point your camera at the customer's QR code.
                     </p>
                 </>
             )}
@@ -89,7 +90,7 @@ const ScanQrPage: React.FC = () => {
             {scannedOrder && (
                 <div className="text-left bg-gray-700/50 p-4 rounded-lg mt-6 text-gray-200">
                     <p><strong>Order ID:</strong> ...{scannedOrder.id.slice(-8)}</p>
-                    <p><strong>Student:</strong> {scannedOrder.studentName}</p>
+                    <p><strong>Customer:</strong> {scannedOrder.customerName}</p>
                     <p><strong>Items:</strong></p>
                     <ul className="list-disc list-inside ml-4">
                         {scannedOrder.items.map(item => <li key={item.id}>{item.name} x {item.quantity}</li>)}

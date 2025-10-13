@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { getOwnerDemoOrders } from '../../services/mockApi';
 import type { Order } from '../../types';
@@ -15,7 +16,7 @@ const DemoOrderCard: React.FC<{ order: Order }> = ({ order }) => {
                                 DEMO-{order.id.slice(-6).toUpperCase()}
                             </p>
                             <p className="text-sm text-gray-400">
-                                Placed by: {order.studentName}
+                                Placed by: {order.customerName}
                             </p>
                             <p className="text-xs text-gray-500">
                                 {new Date(order.timestamp).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
@@ -87,42 +88,32 @@ const DemoOrdersPage: React.FC = () => {
     useEffect(() => {
         fetchDemoOrders();
     }, [fetchDemoOrders]);
-    
+
     if (loading) {
         return (
             <div>
-                <div className="h-10 bg-gray-700 rounded w-1/3 mb-2 animate-pulse"></div>
-                <div className="h-5 bg-gray-700 rounded w-2/3 mb-6 animate-pulse"></div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <DemoOrderCardSkeleton />
-                    <DemoOrderCardSkeleton />
-                </div>
+                 <div className="h-10 bg-gray-700 rounded w-1/3 mb-6 animate-pulse"></div>
+                 <div className="space-y-4">
+                     <DemoOrderCardSkeleton />
+                     <DemoOrderCardSkeleton />
+                 </div>
             </div>
         );
     }
-
-
+    
     return (
         <div>
-            <div className="p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg mb-6">
-                <h1 className="text-4xl font-bold text-gray-200">Demo Orders (Training Only)</h1>
-                <p className="mt-2 text-gray-400 max-w-3xl">
-                    These are demo orders placed by new customers to learn how to use Zero✦Degree. They are not real orders and no payment will be received.
+            <h1 className="text-4xl font-bold text-gray-200 mb-6">Demo Orders 🧪</h1>
+            <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                <p className="mb-4 text-gray-400">
+                    This page displays read-only demo orders. These are simulations to help you understand how completed orders will appear in your system. They are not real transactions and require no action.
                 </p>
-            </div>
-
-            {demoOrders.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-4">
                     {demoOrders.map(order => (
                         <DemoOrderCard key={order.id} order={order} />
                     ))}
                 </div>
-            ) : (
-                 <div className="text-center py-16 bg-gray-800 rounded-2xl shadow-md border border-gray-700">
-                    <p className="text-xl font-semibold text-gray-200">No Demo Orders Found</p>
-                    <p className="text-gray-400 mt-2">When new students try the demo, their orders will appear here.</p>
-                </div>
-            )}
+            </div>
         </div>
     );
 };

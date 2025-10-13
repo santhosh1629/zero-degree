@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -23,7 +24,7 @@ const EyeOffIcon: React.FC = () => (
 );
 
 
-const LoginStudentPage: React.FC = () => {
+const LoginCustomerPage: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -52,9 +53,9 @@ const LoginStudentPage: React.FC = () => {
     try {
       const user = await login(phone, password);
       if (user.role === Role.STUDENT) {
-        navigate('/student/welcome'); 
+        navigate('/customer/welcome'); 
       } else {
-        setError('Access denied. This portal is for students only.');
+        setError('Access denied. This portal is for customers only.');
       }
     } catch (err) {
       setError((err as Error).message);
@@ -71,7 +72,7 @@ const LoginStudentPage: React.FC = () => {
 
       <div ref={cardRef} className="relative max-w-md w-full bg-surface/50 backdrop-blur-xl border border-surface-light rounded-2xl shadow-2xl p-8 z-10">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-extrabold text-textPrimary font-heading">Student Login</h1>
+          <h1 className="text-4xl font-extrabold text-textPrimary font-heading">Customer Login</h1>
           <p className="text-textSecondary/80 mt-2">Let's get you some food!</p>
         </div>
 
@@ -134,7 +135,7 @@ const LoginStudentPage: React.FC = () => {
         </form>
 
         <div className="text-center mt-6 space-y-2">
-            <p><Link to="/register-student" className="text-sm text-primary/90 hover:text-primary font-bold font-heading transition-colors">Don't have an account? Sign Up</Link></p>
+            <p><Link to="/register-customer" className="text-sm text-primary/90 hover:text-primary font-bold font-heading transition-colors">Don't have an account? Sign Up</Link></p>
             <p><Link to="/login-owner" className="text-sm text-textSecondary/60 hover:text-textSecondary/80 font-medium transition-colors">Are you a restaurant partner?</Link></p>
         </div>
       </div>
@@ -143,4 +144,4 @@ const LoginStudentPage: React.FC = () => {
   );
 };
 
-export default LoginStudentPage;
+export default LoginCustomerPage;

@@ -164,7 +164,7 @@ const ForgotPasswordPage: React.FC = () => {
                         </svg>
                         <h2 className="text-2xl font-bold mb-2">Password Reset!</h2>
                         <p className="text-white/80 mb-6">{successMessage}</p>
-                        <button onClick={() => navigate('/login-student')} className={buttonStyle}>
+                        <button onClick={() => navigate('/login-customer')} className={buttonStyle}>
                             Back to Login
                         </button>
                     </div>
@@ -184,7 +184,7 @@ const ForgotPasswordPage: React.FC = () => {
                 
                 {step !== 'success' && (
                     <div className="text-center mt-6">
-                        <Link to="/login-student" className="text-sm text-white/70 hover:underline">Remembered your password? Login</Link>
+                        <Link to="/login-customer" className="text-sm text-white/70 hover:underline">Remembered your password? Login</Link>
                     </div>
                 )}
             </div>

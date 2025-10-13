@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { getAllOffersForOwner, createOffer, updateOfferStatus } from '../../services/mockApi';
 import type { Offer } from '../../types';
 
+// FIX: FormState correctly omits studentId from the Offer type.
 type FormState = Omit<Offer, 'id' | 'isUsed' | 'studentId' | 'isReward'>;
 
 const initialFormState: FormState = { code: '', description: '', discountType: 'fixed', discountValue: 0, isActive: true };
@@ -69,7 +70,7 @@ const OffersPage: React.FC = () => {
             </div>
 
             <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
-                <p className="mb-4 text-gray-400">Create and manage promotional coupon codes for students.</p>
+                <p className="mb-4 text-gray-400">Create and manage promotional coupon codes for customers.</p>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-700">
                         <thead className="bg-gray-700/50">
@@ -109,7 +110,7 @@ const OffersPage: React.FC = () => {
                         <h2 className="text-2xl font-bold mb-6 text-white">Create New Offer</h2>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <input type="text" name="code" value={formData.code} onChange={handleInputChange} placeholder="Coupon Code (e.g., SAVE10)" required className="w-full input" />
-                            <textarea name="description" value={formData.description} onChange={handleInputChange} placeholder="Description (e.g., Special discount for all students)" required className="w-full input" rows={2}/>
+                            <textarea name="description" value={formData.description} onChange={handleInputChange} placeholder="Description (e.g., Special discount for all customers)" required className="w-full input" rows={2}/>
                             <div className="grid grid-cols-2 gap-4">
                                 <select name="discountType" value={formData.discountType} onChange={handleInputChange} className="w-full input bg-gray-700 text-white">
                                     <option value="fixed">Fixed (₹)</option>

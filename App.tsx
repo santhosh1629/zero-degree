@@ -1,5 +1,4 @@
 
-
 import React, { useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -8,17 +7,17 @@ import LoadingScreen from './components/common/LoadingScreen';
 
 // Common pages
 import HomePage from './pages/HomePage';
-import LoginStudentPage from './pages/LoginStudentPage';
-import RegisterStudentPage from './pages/RegisterStudentPage';
+import LoginCustomerPage from './pages/LoginStudentPage';
+import RegisterCustomerPage from './pages/RegisterStudentPage';
 import LoginOwnerPage from './pages/LoginOwnerPage';
 import RegisterOwnerPage from './pages/RegisterOwnerPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import TermsAndConditionsPage from './pages/TermsAndConditionsPage';
 
-// Student pages
+// Customer pages
 import WelcomePage from './pages/student/WelcomePage';
-import StudentLayout from './pages/student/StudentLayout';
+import CustomerLayout from './pages/student/StudentLayout';
 import MenuPage from './pages/student/MenuPage';
 import FoodDetailPage from './pages/student/FoodDetailPage';
 import CartPage from './pages/student/CartPage';
@@ -83,7 +82,7 @@ const AppRoutes = () => {
         if (!user) return <HomePage />;
         switch (user.role) {
             case Role.STUDENT:
-                return <Navigate to="/student/welcome" replace />;
+                return <Navigate to="/customer/welcome" replace />;
             case Role.CANTEEN_OWNER:
                  if (user.approvalStatus !== 'approved') {
                     return <Navigate to="/login-owner" replace />;
@@ -99,24 +98,24 @@ const AppRoutes = () => {
     return (
         <Routes>
             <Route path="/" element={getHomeComponent()} />
-            <Route path="/login-student" element={<LoginStudentPage />} />
-            <Route path="/register-student" element={<RegisterStudentPage />} />
+            <Route path="/login-customer" element={<LoginCustomerPage />} />
+            <Route path="/register-customer" element={<RegisterCustomerPage />} />
             <Route path="/login-owner" element={<LoginOwnerPage />} />
             <Route path="/register-owner" element={<RegisterOwnerPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/terms" element={<TermsAndConditionsPage />} />
             
-            {/* Standalone Student Welcome Page */}
-            <Route path="/student/welcome" element={
+            {/* Standalone Customer Welcome Page */}
+            <Route path="/customer/welcome" element={
                 <ProtectedRoute allowedRoles={[Role.STUDENT]}>
                     <WelcomePage />
                 </ProtectedRoute>
             } />
 
-            {/* Student Routes */}
-            <Route path="/student" element={
+            {/* Customer Routes */}
+            <Route path="/customer" element={
                 <ProtectedRoute allowedRoles={[Role.STUDENT]}>
-                    <StudentLayout />
+                    <CustomerLayout />
                 </ProtectedRoute>
             }>
                 <Route path="menu" element={<MenuPage />} />

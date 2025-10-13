@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
@@ -11,7 +12,7 @@ const Section: React.FC<{ title: string; children: React.ReactNode; className?: 
 );
 
 const CustomerTerms = () => (
-    <Section title="Customer (Student) Terms">
+    <Section title="Customer Terms">
         <ol className="list-decimal list-inside space-y-2">
             <li><strong>Account Creation:</strong> Customers must provide accurate details. Passwords must be secure. Must agree to T&C.</li>
             <li><strong>Ordering & Payments:</strong> Orders via app, payment via UPI/wallet. Demo orders for learning only.</li>
@@ -67,7 +68,7 @@ const SignupAcknowledgment = () => (
 
 const TermsAndConditionsPage: React.FC = () => {
     const [searchParams] = useSearchParams();
-    const userType = searchParams.get('for'); // 'student' or 'owner'
+    const userType = searchParams.get('for'); // 'customer' or 'owner'
 
     return (
         <div className="bg-background min-h-screen font-sans">
@@ -83,7 +84,7 @@ const TermsAndConditionsPage: React.FC = () => {
                  <div className="bg-white p-6 rounded-lg shadow-md max-w-4xl mx-auto">
                     <p className="text-xs text-gray-500 mb-4">Version: 1.0 | Date: 24-Sep-2025</p>
 
-                    {userType === 'student' && <CustomerTerms />}
+                    {userType === 'customer' && <CustomerTerms />}
                     {userType === 'owner' && <OwnerTerms />}
                     
                     {/* If no userType, show all as a fallback */}

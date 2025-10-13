@@ -23,7 +23,7 @@ const Header: React.FC = () => {
   const getHomeLink = () => {
       if (!user) return "/";
       switch(user.role) {
-          case Role.STUDENT: return "/student/menu";
+          case Role.STUDENT: return "/customer/menu";
           case Role.CANTEEN_OWNER: return "/owner/dashboard";
           case Role.ADMIN: return "/admin/dashboard";
           default: return "/";
