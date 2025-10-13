@@ -166,7 +166,7 @@ const AppRoutes = () => {
 
 const App: React.FC = () => {
   return (
-    <div className="min-h-screen font-sans bg-background text-textPrimary">
+    <div className="min-h-screen w-full overflow-x-hidden font-sans bg-background text-textPrimary">
       <AuthProvider>
         <HashRouter>
             <AppRoutes />
