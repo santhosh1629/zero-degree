@@ -489,6 +489,28 @@ export const getStudentPointsList = async (): Promise<StudentPoints[]> => {
     return data.map(u => ({ studentId: u.id, studentName: u.username, points: u.loyalty_points }));
 };
 
+export const getScanTerminalStaff = async (): Promise<User[]> => {
+    const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('role', RoleEnum.CANTEEN_OWNER)
+        .is('canteen_name', null);
+    
+    if (error) throw error;
+    if (!data) return [];
+
+    return data.map(mapDbUserToAppUser);
+};
+
+export const deleteScanTerminalStaff = async (userId: string): Promise<void> => {
+    const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', userId);
+    
+    if (error) throw error;
+};
+
 export const getAllOffersForOwner = async (): Promise<Offer[]> => {
     const { data, error } = await supabase.from('offers').select('*').eq('is_reward', false);
     if (error) throw error;

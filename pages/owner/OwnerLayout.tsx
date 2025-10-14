@@ -16,3 +16,171 @@ const LogoutIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5
 const DemoOrdersDrawerIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.428 15.428a4 4 0 00-5.656 0l-2.829 2.829a4 4 0 01-5.656-5.656l2.829-2.829a4 4 0 005.656-5.656l-2.829-2.829a4 4 0 00-5.656 5.656l2.829 2.829" /><path d="M12 21v-4m0 0V6.5a3.5 3.5 0 00-3.5-3.5H8.5a3.5 3.5 0 000 7h3.5" /></svg>);
 const ScanApprovalIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>);
 
+
+// FIX: Added OwnerLayout component and default export to resolve import error.
+const OwnerLayout: React.FC = () => {
+    const { user, logout } = useAuth();
+    const navigate = useNavigate();
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const location = useLocation();
+    const [toastInfo, setToastInfo] = useState<{ id: number, message: string } | null>(null);
+
+    // Redirect staff users (who don't have a canteenName) to their specific page.
+    if (user && user.role === Role.CANTEEN_OWNER && !user.canteenName) {
+        return <Navigate to="/scan-terminal/home" replace />;
+    }
+
+    const handleLogout = () => {
+        logout();
+        navigate('/login-owner');
+    };
+    
+    // Toast notification for canteen open/closed/etc
+    useEffect(() => {
+        const handleShowToast = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            setToastInfo({ id: Date.now(), message: detail.message });
+        };
+        window.addEventListener('show-owner-toast', handleShowToast);
+        return () => window.removeEventListener('show-owner-toast', handleShowToast);
+    }, []);
+
+    const primaryNavLinks = [
+        { to: "/owner/dashboard", icon: <DashboardIcon />, label: "Dashboard" },
+        { to: "/owner/menu", icon: <MenuBoardIcon />, label: "Menu Mgmt" },
+        { to: "/owner/scan", icon: <ScanIcon />, label: "Scan QR" },
+    ];
+
+    const drawerNavLinks = [
+        { to: "/owner/popularity", icon: <PopularityIcon />, label: "Popularity" },
+        { to: "/owner/rewards", icon: <RewardsIcon />, label: "Rewards" },
+        { to: "/owner/offers", icon: <RewardsIcon />, label: "Offers" }, // Re-using icon for now
+        { to: "/owner/feedback", icon: <FeedbackDrawerIcon />, label: "Feedback" },
+        { to: "/owner/demo-orders", icon: <DemoOrdersDrawerIcon />, label: "Demo Orders" },
+    ];
+    
+    const DrawerNavLink: React.FC<{ to: string, icon: React.ReactNode, label: string }> = ({ to, icon, label }) => (
+        <NavLink
+            to={to}
+            onClick={() => setIsDrawerOpen(false)}
+            className={({ isActive }) =>
+                `flex items-center px-4 py-3 rounded-lg text-lg font-medium transition-colors ${
+                isActive ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                }`
+            }
+        >
+            {icon} {label}
+        </NavLink>
+    );
+    
+    return (
+        <div className="flex flex-col min-h-screen font-sans bg-gray-900 text-white">
+            {/* Toast Notification */}
+            {toastInfo && (
+                <div key={toastInfo.id} className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] w-[calc(100%-2rem)] max-w-sm pointer-events-none">
+                    <div 
+                        onAnimationEnd={() => setToastInfo(null)}
+                        className="flex items-center gap-4 p-3 pr-4 rounded-full shadow-lg text-white font-bold bg-indigo-600 border border-white/20 animate-toast"
+                    >
+                        <span className="flex-shrink-0 h-8 w-8 rounded-full bg-black/20 flex items-center justify-center text-xl">
+                        🔔
+                        </span>
+                        <p className="flex-grow text-sm">{toastInfo.message}</p>
+                    </div>
+                </div>
+             )}
+
+            {/* Drawer Overlay */}
+            <div
+                className={`fixed inset-0 bg-black/60 z-50 transition-opacity duration-300 ${isDrawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                onClick={() => setIsDrawerOpen(false)}
+            />
+
+            {/* Side Drawer */}
+            <aside className={`fixed top-0 left-0 h-full w-64 bg-gray-800 shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                <div className="flex items-center justify-between p-4 border-b border-gray-700 h-16">
+                    <h2 className="text-xl font-bold text-indigo-400">Owner Panel</h2>
+                    <button onClick={() => setIsDrawerOpen(false)} className="text-gray-400 hover:text-white">
+                        <CloseIcon />
+                    </button>
+                </div>
+                <div className="p-4 flex flex-col h-[calc(100%-4rem)]">
+                    <div className="flex-grow space-y-2">
+                        {drawerNavLinks.map(link => <DrawerNavLink key={link.to} {...link} />)}
+                    </div>
+                    <div className="mt-auto pt-4 border-t border-gray-700">
+                        <button
+                            onClick={handleLogout}
+                            className="flex items-center w-full px-4 py-3 rounded-lg text-lg font-medium text-gray-300 hover:bg-red-500/20 hover:text-red-300 transition-colors"
+                        >
+                            <LogoutIcon />
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </aside>
+            
+            {/* Header */}
+            <header className="bg-gray-800/80 backdrop-blur-lg sticky top-0 z-40 h-16 border-b border-gray-700">
+                <div className="container mx-auto h-full flex items-center justify-between px-4">
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => setIsDrawerOpen(true)} className="text-gray-300 hover:text-white">
+                            <MenuIcon />
+                        </button>
+                        <h1 className="text-xl font-bold text-white">{user?.canteenName}</h1>
+                    </div>
+                     <span className="text-sm text-gray-400 hidden sm:inline">Welcome, {user?.username}</span>
+                </div>
+            </header>
+
+             {/* Desktop Primary Nav */}
+            <nav className="hidden sm:flex bg-gray-800/50 backdrop-blur-lg py-3 sticky top-16 z-30 border-b border-gray-700 shadow-md">
+                <div className="container mx-auto flex justify-center items-center gap-8">
+                    {primaryNavLinks.map(link => (
+                        <NavLink
+                            key={link.to}
+                            to={link.to}
+                            className={({ isActive }) =>
+                                `flex items-center gap-2 font-semibold text-lg transition-colors pb-1 border-b-2 ${
+                                isActive ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-gray-400 hover:text-white'
+                                }`
+                            }
+                        >
+                            {link.icon}
+                            <span>{link.label}</span>
+                        </NavLink>
+                    ))}
+                </div>
+            </nav>
+
+            {/* Main Content */}
+            <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
+                <div key={location.pathname} className="animate-fade-in-down">
+                    <Outlet />
+                </div>
+            </main>
+            
+             {/* Bottom Nav for mobile */}
+            <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-gray-800/90 backdrop-blur-lg border-t border-gray-700 shadow-lg z-30">
+                <div className="flex justify-around items-center h-16">
+                    {primaryNavLinks.map(link => (
+                        <NavLink
+                            key={link.to}
+                            to={link.to}
+                            className={({ isActive }) =>
+                                `flex flex-col items-center justify-center gap-1 w-full transition-colors relative ${
+                                isActive ? 'text-indigo-400' : 'text-gray-400 hover:text-indigo-400'
+                                }`
+                            }
+                        >
+                            {link.icon}
+                            <span className="text-xs font-medium">{link.label}</span>
+                        </NavLink>
+                    ))}
+                </div>
+            </nav>
+        </div>
+    );
+};
+
+export default OwnerLayout;
