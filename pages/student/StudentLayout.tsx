@@ -118,9 +118,6 @@ const CustomerLayout: React.FC = () => {
   const [activeToast, setActiveToast] = useState<ToastInfo | null>(null);
   const location = useLocation();
 
-  const [notificationPermission, setNotificationPermission] = useState('Notification' in window ? Notification.permission : 'denied');
-  const [showPermissionBanner, setShowPermissionBanner] = useState(false);
-
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [centerToast, setCenterToast] = useState<ToastInfo | null>(null);
 
@@ -198,8 +195,6 @@ const CustomerLayout: React.FC = () => {
     </NavLink>
   );
 
-  useEffect(() => { if (notificationPermission === 'default') setShowPermissionBanner(true); }, [notificationPermission]);
-
   const fetchActiveOrder = useCallback(async () => {
     if (user) {
         try {
@@ -208,7 +203,7 @@ const CustomerLayout: React.FC = () => {
 
             setActiveOrder(prevActiveOrder => {
                 if (
-                    notificationPermission === 'granted' &&
+                    Notification.permission === 'granted' &&
                     currentActiveOrder &&
                     prevActiveOrder &&
                     currentActiveOrder.id === prevActiveOrder.id &&
@@ -224,21 +219,13 @@ const CustomerLayout: React.FC = () => {
             });
         } catch (error) { console.error("Failed to fetch active order", error); }
     }
-  }, [user, notificationPermission]);
+  }, [user]);
 
   useEffect(() => {
     fetchActiveOrder();
     const intervalId = setInterval(fetchActiveOrder, 5000);
     return () => clearInterval(intervalId);
   }, [fetchActiveOrder]);
-
-  const handleRequestPermission = async () => {
-      if ('Notification' in window) {
-          const permission = await Notification.requestPermission();
-          setNotificationPermission(permission);
-          setShowPermissionBanner(false);
-      }
-  };
 
   const getToastStyles = (type: ToastType) => {
     switch(type) {
@@ -423,21 +410,6 @@ const CustomerLayout: React.FC = () => {
                 </div>
             </div>
         )}
-        
-         {/* Notification Permission Banner */}
-         {showPermissionBanner && (
-             <div className="fixed bottom-20 sm:bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-lg z-50 bg-surface/80 backdrop-blur-lg border border-surface-light p-4 rounded-lg shadow-lg flex items-center gap-4 animate-fade-in-down">
-                 <div className="text-2xl">🔔</div>
-                 <div className="flex-grow">
-                     <p className="font-bold text-textPrimary">Stay Updated!</p>
-                     <p className="text-sm text-textSecondary">Enable notifications to know when your order is ready for pickup.</p>
-                 </div>
-                 <div className="flex-shrink-0 flex gap-2">
-                     <button onClick={() => setShowPermissionBanner(false)} className="text-xs px-3 py-1 rounded-md text-textSecondary">Later</button>
-                     <button onClick={handleRequestPermission} className="text-xs bg-primary text-background font-bold px-3 py-2 rounded-md">Enable</button>
-                 </div>
-             </div>
-         )}
     </div>
   );
 };

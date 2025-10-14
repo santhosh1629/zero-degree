@@ -1,4 +1,5 @@
 
+
 // This file now contains functions to interact with the Supabase backend.
 
 import { supabase } from './supabase';
@@ -15,7 +16,7 @@ export const mapDbOrderToAppOrder = (dbOrder: any): Order => ({
     // FIX: Map to studentId and studentName
     studentId: dbOrder.student_id,
     studentName: dbOrder.users?.username || dbOrder.student_name || 'N/A',
-    customerPhone: dbOrder.student_phone,
+    customerPhone: dbOrder.users?.phone || dbOrder.student_phone,
     items: dbOrder.items,
     totalAmount: dbOrder.total_amount,
     status: dbOrder.status,
@@ -483,7 +484,7 @@ export const getOrderStatusSummary = async (): Promise<{ name: string; value: nu
 
 // FIX: Rename to getStudentPointsList and map to StudentPoints type
 export const getStudentPointsList = async (): Promise<StudentPoints[]> => {
-    const { data, error } = await supabase.from('users').select('id, username, loyalty_points').eq('role', 'CUSTOMER').order('loyalty_points', { ascending: false }).limit(20);
+    const { data, error } = await supabase.from('users').select('id, username, loyalty_points').eq('role', RoleEnum.STUDENT).order('loyalty_points', { ascending: false }).limit(20);
     if (error) throw error;
     return data.map(u => ({ studentId: u.id, studentName: u.username, points: u.loyalty_points }));
 };
@@ -743,8 +744,8 @@ export const applyCoupon = async (code: string, subtotal: number, studentId: str
 
 export const getAdminDashboardStats = async (): Promise<AdminStats> => {
     const { count: totalUsers, error: e1 } = await supabase.from('users').select('*', { count: 'exact', head: true });
-    const { count: totalCustomers, error: e2 } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'CUSTOMER');
-    const { count: totalOwners, error: e3 } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'CANTEEN_OWNER');
+    const { count: totalCustomers, error: e2 } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', RoleEnum.STUDENT);
+    const { count: totalOwners, error: e3 } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', RoleEnum.CANTEEN_OWNER);
     const { count: pendingApprovals, error: e4 } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('approval_status', 'pending');
     const { count: totalFeedbacks, error: e5 } = await supabase.from('feedbacks').select('*', { count: 'exact', head: true });
 

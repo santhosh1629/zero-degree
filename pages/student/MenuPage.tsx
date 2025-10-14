@@ -169,10 +169,24 @@ const MenuPage: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
     const [isCanteenOnline, setIsCanteenOnline] = useState(true);
+    const [showPermissionBanner, setShowPermissionBanner] = useState(false);
     
     const { user } = useAuth();
     const navigate = useNavigate();
     const menuGridRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if ('Notification' in window && Notification.permission === 'default') {
+            setShowPermissionBanner(true);
+        }
+    }, []);
+
+    const handleRequestPermission = async () => {
+        if ('Notification' in window) {
+            await Notification.requestPermission();
+            setShowPermissionBanner(false);
+        }
+    };
 
     const fetchPageData = useCallback(async () => {
         if (user) {
@@ -341,6 +355,23 @@ const MenuPage: React.FC = () => {
 
             <section>
                 <h2 className="text-2xl font-bold font-heading mb-4 text-textPrimary bg-black/50 backdrop-blur-lg px-4 py-2 rounded-lg inline-block border border-surface-light" style={{textShadow: '0 2px 4px rgba(0,0,0,0.5)'}}>Full Menu</h2>
+                
+                {showPermissionBanner && (
+                    <div className="max-w-lg mx-auto mb-4 relative z-20">
+                        <div className="bg-surface/80 backdrop-blur-lg border border-surface-light p-4 rounded-lg shadow-lg flex items-center gap-4 animate-fade-in-down">
+                            <div className="text-2xl">🔔</div>
+                            <div className="flex-grow">
+                                <p className="font-bold text-textPrimary">Stay Updated!</p>
+                                <p className="text-sm text-textSecondary">Enable notifications to know when your order is ready.</p>
+                            </div>
+                            <div className="flex-shrink-0 flex gap-2">
+                                <button onClick={() => setShowPermissionBanner(false)} className="text-xs px-3 py-1 rounded-md text-textSecondary">Later</button>
+                                <button onClick={handleRequestPermission} className="text-xs bg-primary text-background font-bold px-3 py-2 rounded-md">Enable</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                
                  <div className="mb-6 max-w-lg mx-auto relative z-30 sticky top-[calc(4rem+3.5rem+1rem)]">
                     <input
                         type="text"
