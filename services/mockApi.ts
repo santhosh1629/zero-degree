@@ -24,6 +24,7 @@ export const mapDbOrderToAppOrder = (dbOrder: any): Order => ({
     couponCode: dbOrder.coupon_code,
     discountAmount: dbOrder.discount_amount,
     refundAmount: dbOrder.refund_amount,
+    collectedByStaffId: dbOrder.collected_by_staff_id,
 });
 
 const mapDbUserToAppUser = (dbUser: any): User => ({
@@ -220,7 +221,7 @@ export const cancelStudentOrder = async (orderId: string, studentId: string): Pr
     return mapDbOrderToAppOrder(data);
 };
 
-export const verifyQrCodeAndCollectOrder = async (qrToken: string): Promise<Order> => {
+export const verifyQrCodeAndCollectOrder = async (qrToken: string, staffId: string): Promise<Order> => {
     let tokenData;
     try {
         tokenData = JSON.parse(qrToken);
@@ -238,7 +239,7 @@ export const verifyQrCodeAndCollectOrder = async (qrToken: string): Promise<Orde
     
     const { data: updatedOrder, error: updateError } = await supabase
         .from('orders')
-        .update({ status: OrderStatusEnum.COLLECTED })
+        .update({ status: OrderStatusEnum.COLLECTED, collected_by_staff_id: staffId })
         .eq('id', orderId)
         .select('*')
         .single();

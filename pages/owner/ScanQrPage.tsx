@@ -2,10 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { verifyQrCodeAndCollectOrder } from '../../services/mockApi';
 import type { Order } from '../../types';
+import { useAuth } from '../../context/AuthContext';
 
 declare const Html5QrcodeScanner: any;
 
 const ScanQrPage: React.FC = () => {
+    const { user } = useAuth();
     const [scanResult, setScanResult] = useState<'idle' | 'success' | 'error'>('idle');
     const [scannedOrder, setScannedOrder] = useState<Order | null>(null);
     const [errorMessage, setErrorMessage] = useState('');
@@ -44,8 +46,14 @@ const ScanQrPage: React.FC = () => {
 
     const handleVerifyQrCode = async (qrCodeData: string) => {
         setIsVerifying(true);
+        if (!user) {
+            setErrorMessage('User not authenticated. Please log in again.');
+            setScanResult('error');
+            setIsVerifying(false);
+            return;
+        }
         try {
-            const order = await verifyQrCodeAndCollectOrder(qrCodeData);
+            const order = await verifyQrCodeAndCollectOrder(qrCodeData, user.id);
             setScannedOrder(order);
             setScanResult('success');
         } catch (err) {
@@ -90,7 +98,7 @@ const ScanQrPage: React.FC = () => {
             {scannedOrder && (
                 <div className="text-left bg-gray-700/50 p-4 rounded-lg mt-6 text-gray-200">
                     <p><strong>Order ID:</strong> ...{scannedOrder.id.slice(-8)}</p>
-                    <p><strong>Customer:</strong> {scannedOrder.customerName}</p>
+                    <p><strong>Customer:</strong> {scannedOrder.studentName}</p>
                     <p><strong>Items:</strong></p>
                     <ul className="list-disc list-inside ml-4">
                         {scannedOrder.items.map(item => <li key={item.id}>{item.name} x {item.quantity}</li>)}

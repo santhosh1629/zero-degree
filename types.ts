@@ -85,6 +85,7 @@ export interface Order {
   pointsEarned?: number;
   pointsSpent?: number;
   refundAmount?: number;
+  collectedByStaffId?: string;
 }
 
 export interface SalesSummary {

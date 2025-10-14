@@ -108,6 +108,30 @@ const DailyStats: React.FC<{ stats: TodaysDashboardStats }> = ({ stats }) => {
     );
 };
 
+const StaffScanLeaderboard: React.FC<{ counts: { name: string; count: number }[] }> = ({ counts }) => (
+    <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+        <h2 className="text-2xl font-bold text-gray-200 mb-4">Today's Staff Scans 🏆</h2>
+        {counts.length > 0 ? (
+            <ul className="space-y-3">
+                {counts.map((staff, index) => (
+                    <li key={staff.name} className="flex items-center justify-between bg-gray-700/50 p-3 rounded-lg transition-transform hover:scale-105">
+                        <div className="flex items-center gap-3">
+                            <span className={`font-bold text-lg w-8 text-center ${index === 0 ? 'text-amber-400' : index === 1 ? 'text-gray-300' : index === 2 ? 'text-orange-400' : 'text-gray-500'}`}>
+                                {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
+                            </span>
+                            <span className="font-semibold text-white">{staff.name}</span>
+                        </div>
+                        <span className="font-black text-xl text-indigo-400">{staff.count} scans</span>
+                    </li>
+                ))}
+            </ul>
+        ) : (
+            <p className="text-center text-gray-400 py-4">No scans recorded by staff today.</p>
+        )}
+    </div>
+);
+
+
 const OrdersManager: React.FC<{orders: Order[], onStatusUpdate: () => void, onViewOrder: (order: Order) => void}> = ({ orders, onStatusUpdate, onViewOrder }) => {
     const [showOnlyPending, setShowOnlyPending] = useState(false);
     const handleStatusUpdate = async (orderId: string, newStatus: OrderStatus) => {
@@ -337,6 +361,7 @@ const OwnerDashboard: React.FC = () => {
     const [orderStatusSummary, setOrderStatusSummary] = useState<{ name: string; value: number }[]>([]);
     const [customerPoints, setCustomerPoints] = useState<StudentPoints[]>([]);
     const [staffAccounts, setStaffAccounts] = useState<User[]>([]);
+    const [staffScanCounts, setStaffScanCounts] = useState<{ name: string; count: number }[]>([]);
     
     const fetchData = useCallback(async () => {
         if (!user) return;
@@ -376,6 +401,36 @@ const OwnerDashboard: React.FC = () => {
             supabase.removeChannel(channel);
         };
     }, [fetchData]);
+
+    useEffect(() => {
+        if (!loading && orders.length > 0 && user) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const todaysCollectedOrders = orders.filter(
+                o => o.status === OrderStatus.COLLECTED && new Date(o.timestamp) >= today
+            );
+
+            const scanCounts = new Map<string, number>();
+            todaysCollectedOrders.forEach(order => {
+                if (order.collectedByStaffId) {
+                    scanCounts.set(order.collectedByStaffId, (scanCounts.get(order.collectedByStaffId) || 0) + 1);
+                }
+            });
+
+            const allStaffAndOwner = [...staffAccounts];
+            if (!allStaffAndOwner.find(s => s.id === user.id)) {
+                allStaffAndOwner.push(user);
+            }
+
+            const leaderboardData = allStaffAndOwner.map(staff => ({
+                name: staff.username,
+                count: scanCounts.get(staff.id) || 0,
+            })).sort((a, b) => b.count - a.count);
+
+            setStaffScanCounts(leaderboardData);
+        }
+    }, [orders, staffAccounts, user, loading]);
     
     const handleAddStaff = async (details: { name: string; phone: string; password: string }) => {
         await registerStaffUser(details.name, details.phone, details.password);
@@ -459,7 +514,7 @@ const OwnerDashboard: React.FC = () => {
     const renderContent = () => {
         if (loading || !todaysStats || !salesSummary) return <div className="text-center p-8 text-gray-300">Loading dashboard data...</div>;
         switch (activeTab) {
-            case 'live': return <div className="space-y-6"><DailyStats stats={todaysStats} /><OrdersManager orders={orders} onStatusUpdate={fetchData} onViewOrder={setViewingOrder}/></div>;
+            case 'live': return <div className="space-y-6"><DailyStats stats={todaysStats} /><StaffScanLeaderboard counts={staffScanCounts} /><OrdersManager orders={orders} onStatusUpdate={fetchData} onViewOrder={setViewingOrder}/></div>;
             case 'analytics': return <AnalyticsView salesSummary={salesSummary} mostSellingItems={mostSellingItems} orderStatusSummary={orderStatusSummary} />;
             case 'management': return <ManagementView menu={menu} customerPoints={customerPoints} onAvailabilityChange={handleMenuAvailabilityChange} />;
             case 'history': return <OrderHistoryView orders={orders} />;
