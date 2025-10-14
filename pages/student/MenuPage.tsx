@@ -171,6 +171,12 @@ const MenuPage: React.FC = () => {
     const [isCanteenOnline, setIsCanteenOnline] = useState(true);
     const [showPermissionBanner, setShowPermissionBanner] = useState(false);
     
+    // State for pull-to-refresh
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [pullPosition, setPullPosition] = useState(0);
+    const touchStartRef = useRef<number | null>(null);
+    const PULL_THRESHOLD = 80;
+
     const { user } = useAuth();
     const navigate = useNavigate();
     const menuGridRef = useRef<HTMLDivElement>(null);
@@ -202,6 +208,55 @@ const MenuPage: React.FC = () => {
             }
         }
     }, [user]);
+
+    // Pull-to-refresh logic
+    useEffect(() => {
+        const handleTouchStart = (e: TouchEvent) => {
+            if (window.scrollY === 0) {
+                touchStartRef.current = e.touches[0].clientY;
+            } else {
+                touchStartRef.current = null;
+            }
+        };
+
+        const handleTouchMove = (e: TouchEvent) => {
+            if (touchStartRef.current === null || isRefreshing) return;
+            const pullDistance = e.touches[0].clientY - touchStartRef.current;
+            if (pullDistance > 0) {
+                e.preventDefault(); // Prevent native pull-to-refresh and overscroll
+                setPullPosition(pullDistance);
+            }
+        };
+
+        const handleTouchEnd = () => {
+            if (touchStartRef.current === null) return;
+            
+            const finalPullPosition = pullPosition;
+            touchStartRef.current = null;
+            
+            if (finalPullPosition > PULL_THRESHOLD && !isRefreshing) {
+                setIsRefreshing(true);
+                fetchPageData().finally(() => {
+                    setTimeout(() => {
+                        setIsRefreshing(false);
+                        setPullPosition(0);
+                    }, 500); // Keep spinner for a bit for better UX
+                });
+            } else if (!isRefreshing) {
+                setPullPosition(0); // Snap back if not pulled enough
+            }
+        };
+
+        window.addEventListener('touchstart', handleTouchStart);
+        window.addEventListener('touchmove', handleTouchMove, { passive: false });
+        window.addEventListener('touchend', handleTouchEnd);
+        
+        return () => {
+            window.removeEventListener('touchstart', handleTouchStart);
+            window.removeEventListener('touchmove', handleTouchMove);
+            window.removeEventListener('touchend', handleTouchEnd);
+        };
+    }, [fetchPageData, isRefreshing, pullPosition]);
 
     useEffect(() => {
         const initialFetch = async () => {
@@ -241,7 +296,6 @@ const MenuPage: React.FC = () => {
         if (loading || typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined' || !menuGridRef.current) return;
 
         gsap.registerPlugin(ScrollTrigger);
-        // FIX: Remove type argument from untyped function call and cast the result instead.
         const cards = gsap.utils.toArray(menuGridRef.current.children) as HTMLElement[];
         if (cards.length === 0) return;
 
@@ -345,6 +399,31 @@ const MenuPage: React.FC = () => {
 
     return (
         <div className="relative">
+            <div
+                className="absolute -top-14 left-0 right-0 h-14 flex items-center justify-center pointer-events-none"
+                style={{
+                    transform: `translateY(${isRefreshing ? PULL_THRESHOLD : Math.min(pullPosition, PULL_THRESHOLD + 40)}px)`,
+                    opacity: isRefreshing ? 1 : Math.min(pullPosition / PULL_THRESHOLD, 1),
+                    transition: pullPosition === 0 || isRefreshing ? 'transform 0.3s ease-out, opacity 0.3s ease-out' : 'none',
+                }}
+            >
+                <div className="bg-surface/80 backdrop-blur-lg w-12 h-12 rounded-full flex items-center justify-center shadow-lg border border-surface-light">
+                    {isRefreshing ? (
+                        <svg className="animate-spin h-6 w-6 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    ) : (
+                        <svg
+                            className="h-6 w-6 text-primary transition-transform duration-200"
+                            style={{ transform: `rotate(${Math.min(pullPosition / PULL_THRESHOLD, 1) * 180}deg)` }}
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                        </svg>
+                    )}
+                </div>
+            </div>
+            
             {!isCanteenOnline && (
                 <div className="bg-red-500/20 border border-red-400/30 text-center p-3 rounded-lg mb-6 text-red-200 animate-fade-in-down">
                     The canteen is currently offline. All food items are unavailable for ordering.

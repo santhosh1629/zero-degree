@@ -126,6 +126,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const register = useCallback(async (name: string, phone: string, password: string): Promise<User> => {
+    // Check for existing phone number to prevent unique constraint violation.
+    const { data: existingUser, error: checkError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('phone', phone)
+        .limit(1);
+
+    if (checkError) throw checkError;
+
+    if (existingUser && existingUser.length > 0) {
+        throw new Error('This phone number is already registered. Please try logging in or use a different number.');
+    }
+
     const { data, error } = await supabase
         .from('users')
         .insert({
@@ -139,11 +152,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .select()
         .single();
     
-    if (error) throw new Error(error.message);
+    if (error) {
+        // Fallback error message in case of a race condition
+        if (error.message.includes("duplicate key")) {
+            throw new Error('This phone number is already registered. Please try logging in or use a different number.');
+        }
+        throw new Error(error.message);
+    }
     return handleAuthSuccess(data);
   }, []);
 
   const registerOwner = useCallback(async (name: string, email: string, phone: string, password: string, canteenName: string, idProofUrl: string): Promise<User> => {
+    // Check for existing phone number or email. Uniqueness is enforced for owners.
+    const { data: existingUsers, error: checkError } = await supabase
+        .from('users')
+        .select('phone, email')
+        .or(`phone.eq.${phone},email.eq.${email}`);
+
+    if (checkError) throw checkError;
+
+    if (existingUsers && existingUsers.length > 0) {
+        if (existingUsers.some(u => u.phone === phone)) {
+            throw new Error('This phone number is already registered.');
+        }
+        if (existingUsers.some(u => u.email === email)) {
+            throw new Error('This email address is already registered.');
+        }
+    }
+    
     const { data, error } = await supabase
         .from('users')
         .insert({
@@ -170,6 +206,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
   
   const registerStaffUser = useCallback(async (name: string, phone: string, password: string): Promise<User> => {
+    // Check for existing phone number. Uniqueness is enforced for staff.
+    const { data: existingUser, error: checkError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('phone', phone)
+        .limit(1);
+
+    if (checkError) throw checkError;
+
+    if (existingUser && existingUser.length > 0) {
+        throw new Error('This phone number is already registered.');
+    }
+    
     const { data, error } = await supabase
         .from('users')
         .insert({
