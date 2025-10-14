@@ -103,7 +103,7 @@ export const getOwnerStatus = async (): Promise<{ isOnline: boolean }> => {
     return { isOnline: true };
 }
 
-// FIX: Rename customerId to studentId
+// FIX: Rename studentId to studentId
 export const getMenu = async (studentId?: string): Promise<MenuItem[]> => {
     const { data: menuData, error: menuError } = await supabase.from('menu').select('*');
     if (menuError) throw menuError;
@@ -130,7 +130,7 @@ export const getMenu = async (studentId?: string): Promise<MenuItem[]> => {
     }));
 };
 
-// FIX: Rename customerId to studentId
+// FIX: Rename studentId to studentId
 export const getMenuItemById = async (itemId: string, studentId?: string): Promise<MenuItem | undefined> => {
     const { data, error } = await supabase.from('menu').select('*').eq('id', itemId).single();
     if (error) throw error;
@@ -153,7 +153,7 @@ export const getMenuItemById = async (itemId: string, studentId?: string): Promi
     return item;
 };
 
-// FIX: Rename customerId to studentId
+// FIX: Rename studentId to studentId
 export const toggleFavoriteItem = async (studentId: string, itemId: string): Promise<void> => {
     const { data: existing, error } = await supabase
         .from('student_favorites')

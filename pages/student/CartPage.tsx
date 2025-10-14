@@ -105,7 +105,7 @@ const CartPage: React.FC = () => {
             const orderPayload = {
                 studentId: user.id, studentName: user.username,
                 items: cart.map(({ id, name, quantity, price, notes, imageUrl }) => ({ id, name, quantity, price, notes, imageUrl })),
-                totalAmount, couponCode: appliedCoupon?.code, discountAmount,
+                totalAmount,
             };
             const order = await placeDemoOrder(orderPayload);
             updateCart([]);

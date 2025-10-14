@@ -140,7 +140,7 @@ const MenuItemCard: React.FC<{
                     <div className="flex items-center gap-3">
                         {averageRating !== undefined && (
                              <div className="flex items-center gap-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-400" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-400" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588 1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
                                 <span className="text-sm font-semibold text-textSecondary">{averageRating.toFixed(1)}</span>
                             </div>
                         )}
@@ -314,176 +314,152 @@ const MenuPage: React.FC = () => {
                     ease: 'power3.out',
                     overwrite: true
                 }),
-                onLeaveBack: batch => gsap.set(batch, {
-                    opacity: 0,
-                    y: 50,
-                    scale: 0.9,
+                onLeave: batch => gsap.set(batch, { opacity: 0, y: -50, overwrite: true }),
+                onEnterBack: batch => gsap.to(batch, {
+                    opacity: 1,
+                    y: 0,
+                    scale: 1,
+                    duration: 0.6,
+                    stagger: 0.1,
+                    ease: 'power3.out',
                     overwrite: true
                 }),
+                onLeaveBack: batch => gsap.set(batch, { opacity: 0, y: 50, overwrite: true })
             });
         }, menuGridRef);
 
-        return () => {
-            ctx.revert();
-            ScrollTrigger.getAll().forEach(trigger => trigger.kill());
-        };
-    }, [filteredMenu, loading]);
+        return () => ctx.revert();
+    }, [loading, filteredMenu]);
 
-    const handleToggleFavorite = async (itemId: string, isFavorited: boolean) => {
+    const handleCardClick = useCallback((item: MenuItem, element: HTMLElement) => {
+        navigate(`/customer/menu/${item.id}`);
+    }, [navigate]);
+
+    const handleToggleFavorite = useCallback(async (itemId: string, isFavorited: boolean) => {
         if (!user) return;
-        setMenu(prevMenu => prevMenu.map(item => 
-            item.id === itemId ? { ...item, isFavorited: !isFavorited, favoriteCount: (item.favoriteCount || 0) + (!isFavorited ? 1 : -1) } : item
-        ));
-        await toggleFavoriteItem(user.id, itemId);
-
-        const message = !isFavorited ? 'Added to favorites! ❤️' : 'Removed from favorites.';
-        window.dispatchEvent(new CustomEvent('show-toast', { detail: { message, type: 'cart-warn' } }));
-    };
+        
+        // Optimistic UI update
+        setMenu(prev => prev.map(item => item.id === itemId ? { ...item, isFavorited: !isFavorited, favoriteCount: (item.favoriteCount || 0) + (!isFavorited ? 1 : -1) } : item));
+        
+        try {
+            await toggleFavoriteItem(user.id, itemId);
+        } catch (error) {
+            console.error("Failed to toggle favorite", error);
+            // Revert on error
+            setMenu(prev => prev.map(item => item.id === itemId ? { ...item, isFavorited: isFavorited, favoriteCount: (item.favoriteCount || 0) + (isFavorited ? 1 : -1) } : item));
+        }
+    }, [user]);
 
     const handleAddToCart = useCallback((item: MenuItem) => {
         const cart = getCartFromStorage();
-        const existingItem = cart.find(cartItem => cartItem.id === item.id);
-        if (existingItem) {
-            const newCart = cart.map(cartItem =>
-                cartItem.id === item.id ? { ...cartItem, quantity: cartItem.quantity + 1 } : cartItem
-            );
-            saveCartToStorage(newCart);
-            window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Item quantity updated!', type: 'cart-warn' } }));
-        } else {
-            const newCart = [...cart, { ...item, quantity: 1 }];
-            saveCartToStorage(newCart);
-            window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Item Added to Cart!', type: 'cart-add' } }));
+        // Prevent mixing demo and real items
+        if (cart.length > 0 && cart[0].isDemo) {
+            if(window.confirm("You have demo items in your cart. Starting a real order will clear your demo cart. Continue?")) {
+                saveCartToStorage([]); // Clear cart
+            } else {
+                return;
+            }
         }
+        
+        const existingItem = cart.find(cartItem => cartItem.id === item.id);
+        
+        let newCart;
+        if (existingItem) {
+            newCart = cart.map(cartItem => 
+                cartItem.id === item.id ? { ...cartItem, quantity: cartItem.quantity + 1, isDemo: false } : cartItem
+            );
+        } else {
+            newCart = [...cart, { ...item, quantity: 1, isDemo: false }];
+        }
+        saveCartToStorage(newCart);
+
+        // Dispatch events for UI feedback
         window.dispatchEvent(new CustomEvent('itemAddedToCart'));
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Item Added to Cart!', type: 'cart-add' } }));
     }, []);
 
-    const handleCardClick = (itemId: string) => {
-        navigate(`/customer/menu/${itemId}`);
-    };
-
-    const handleCarouselCardClick = (item: MenuItem, element: HTMLElement) => {
-        navigate(`/customer/menu/${item.id}`);
-    };
-
-    const topSellingItems = useMemo(() => 
-        [...menu]
+    const promotedItems = useMemo(() => {
+        // Simple promotion logic: highest rated available items
+        return menu
             .filter(item => item.isAvailable)
-            .sort((a, b) => (b.favoriteCount || 0) - (a.favoriteCount || 0))
-            .slice(0, 8), 
-        [menu]
-    );
-
-    if (loading) {
-        return (
-            <div className="animate-pulse">
-                <div className="mb-8">
-                    <div className="h-10 bg-surface rounded-lg w-1/3 mb-4"></div>
-                    <div className="flex gap-4 overflow-hidden">
-                        <div className="w-80 h-48 bg-surface rounded-xl flex-shrink-0"></div>
-                        <div className="w-80 h-48 bg-surface rounded-xl flex-shrink-0"></div>
-                        <div className="w-80 h-48 bg-surface rounded-xl flex-shrink-0"></div>
-                    </div>
-                </div>
-                <div>
-                    <div className="h-10 bg-surface rounded-lg w-1/4 mb-4"></div>
-                    <div className="mb-6 h-12 bg-surface rounded-xl"></div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        {Array.from({ length: 4 }).map((_, i) => (
-                            <div key={i} className="h-72 bg-surface rounded-2xl"></div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
+            .sort((a, b) => (b.averageRating ?? 0) - (a.averageRating ?? 0))
+            .slice(0, 10);
+    }, [menu]);
+    
     return (
-        <div className="relative">
-            <div
-                className="absolute -top-14 left-0 right-0 h-14 flex items-center justify-center pointer-events-none"
-                style={{
-                    transform: `translateY(${isRefreshing ? PULL_THRESHOLD : Math.min(pullPosition, PULL_THRESHOLD + 40)}px)`,
-                    opacity: isRefreshing ? 1 : Math.min(pullPosition / PULL_THRESHOLD, 1),
-                    transition: pullPosition === 0 || isRefreshing ? 'transform 0.3s ease-out, opacity 0.3s ease-out' : 'none',
-                }}
-            >
-                <div className="bg-surface/80 backdrop-blur-lg w-12 h-12 rounded-full flex items-center justify-center shadow-lg border border-surface-light">
+        <div>
+            {/* Pull-to-refresh indicator */}
+            <div style={{ transform: `translateY(${Math.min(pullPosition, PULL_THRESHOLD)}px)`, transition: isRefreshing || pullPosition === 0 ? 'transform 0.3s' : 'none' }} className="fixed top-16 left-0 right-0 z-20 flex justify-center items-center pt-2 pb-4 text-white">
+                <div className="bg-surface/50 backdrop-blur-lg p-2 rounded-full shadow-lg">
                     {isRefreshing ? (
                         <svg className="animate-spin h-6 w-6 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                     ) : (
-                        <svg
-                            className="h-6 w-6 text-primary transition-transform duration-200"
-                            style={{ transform: `rotate(${Math.min(pullPosition / PULL_THRESHOLD, 1) * 180}deg)` }}
-                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                        <svg style={{ transform: `rotate(${Math.min(pullPosition / PULL_THRESHOLD, 1) * 360}deg)` }} className="h-6 w-6 text-white transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M5 9a7 7 0 0110-5.222M19 15a7 7 0 01-10 5.222M20 20v-5h-5" />
                         </svg>
                     )}
                 </div>
             </div>
-            
-            {!isCanteenOnline && (
-                <div className="bg-red-500/20 border border-red-400/30 text-center p-3 rounded-lg mb-6 text-red-200 animate-fade-in-down">
-                    The canteen is currently offline. All food items are unavailable for ordering.
+
+            {/* Notification permission banner */}
+            {showPermissionBanner && (
+                 <div className="bg-indigo-600/80 backdrop-blur-md text-white p-3 rounded-lg flex items-center justify-between gap-4 mb-6 animate-fade-in-down">
+                    <p className="text-sm font-semibold">
+                        🔔 Get notified when your order is ready for pickup!
+                    </p>
+                    <button onClick={handleRequestPermission} className="bg-white text-indigo-600 font-bold text-xs py-1 px-3 rounded-full flex-shrink-0">
+                        Enable Notifications
+                    </button>
                 </div>
             )}
             
-            <PromotionsBanner items={topSellingItems} onCardClick={handleCarouselCardClick} />
+            {isCanteenOnline ? (
+            <>
+            <PromotionsBanner items={promotedItems} onCardClick={handleCardClick} />
 
-            <section>
-                <h2 className="text-2xl font-bold font-heading mb-4 text-textPrimary bg-black/50 backdrop-blur-lg px-4 py-2 rounded-lg inline-block border border-surface-light" style={{textShadow: '0 2px 4px rgba(0,0,0,0.5)'}}>Full Menu</h2>
-                
-                {showPermissionBanner && (
-                    <div className="max-w-lg mx-auto mb-4 relative z-20">
-                        <div className="bg-surface/80 backdrop-blur-lg border border-surface-light p-4 rounded-lg shadow-lg flex items-center gap-4 animate-fade-in-down">
-                            <div className="text-2xl">🔔</div>
-                            <div className="flex-grow">
-                                <p className="font-bold text-textPrimary">Stay Updated!</p>
-                                <p className="text-sm text-textSecondary">Enable notifications to know when your order is ready.</p>
-                            </div>
-                            <div className="flex-shrink-0 flex gap-2">
-                                <button onClick={() => setShowPermissionBanner(false)} className="text-xs px-3 py-1 rounded-md text-textSecondary">Later</button>
-                                <button onClick={handleRequestPermission} className="text-xs bg-primary text-background font-bold px-3 py-2 rounded-md">Enable</button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-                
-                 <div className="mb-6 max-w-lg mx-auto relative z-30 sticky top-[calc(4rem+3.5rem+1rem)]">
-                    <input
-                        type="text"
-                        placeholder="SEARCH. EAT. REPEAT."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-4 pr-12 py-3 border-none bg-surface/50 backdrop-blur-lg text-textPrimary rounded-xl shadow-lg border border-surface-light focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-textSecondary/80 font-black"
-                    />
-                    <button
-                        onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-                        className="absolute inset-y-0 right-0 flex items-center pr-4"
-                        aria-label="Show favorites only"
-                        title="Show favorites only"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 transition-colors ${showFavoritesOnly ? 'text-red-500' : 'text-textSecondary/70 hover:text-red-400'}`} viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-                        </svg>
+            <div className="flex flex-col sm:flex-row gap-4 mb-6 sticky top-16 z-20 bg-background/80 backdrop-blur-md py-4 -mx-4 px-4">
+                <input
+                    type="text"
+                    placeholder="Search for food..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full sm:flex-grow px-4 py-2 bg-surface/80 border border-surface-light text-textPrimary rounded-full focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-textSecondary/70"
+                />
+                <div className="flex items-center justify-center">
+                    <button onClick={() => setShowFavoritesOnly(!showFavoritesOnly)} className={`flex items-center gap-2 px-4 py-2 rounded-full font-semibold transition-colors text-sm ${showFavoritesOnly ? 'bg-primary text-background' : 'bg-surface/80 text-textSecondary hover:bg-surface-light'}`}>
+                        {showFavoritesOnly ? '❤️ Favorites' : '🤍 Show Favorites'}
                     </button>
                 </div>
-                {filteredMenu.length === 0 && !loading ? (
-                    <div className="text-center py-16 bg-surface/50 backdrop-blur-lg rounded-xl shadow-lg border border-surface-light">
-                        <p className="text-xl font-semibold text-textPrimary">NO FOOD MATCHES YOUR SEARCH.</p>
-                         {showFavoritesOnly && <p className="text-textSecondary mt-2">Try removing the 'favorites only' filter.</p>}
-                    </div>
-                ) : (
-                    <div ref={menuGridRef} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        {filteredMenu.map(item => (
-                            <MenuItemCard key={item.id} item={item} onCardClick={handleCardClick} onToggleFavorite={handleToggleFavorite} onAddToCart={handleAddToCart} />
-                        ))}
-                    </div>
-                )}
-            </section>
+            </div>
 
+            {filteredMenu.length > 0 ? (
+                <div ref={menuGridRef} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {filteredMenu.map(item => (
+                        <MenuItemCard 
+                            key={item.id} 
+                            item={item} 
+                            onCardClick={() => navigate(`/customer/menu/${item.id}`)}
+                            onToggleFavorite={handleToggleFavorite}
+                            onAddToCart={handleAddToCart}
+                        />
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-16 text-textPrimary/80">
+                    <p className="text-xl font-semibold">No items found.</p>
+                    <p>Try adjusting your search or filter.</p>
+                </div>
+            )}
+            </>
+            ) : (
+                <div className="text-center py-20 bg-surface/50 backdrop-blur-lg rounded-lg">
+                    <h2 className="text-3xl font-bold text-red-400">Canteen is currently offline</h2>
+                    <p className="mt-2 text-textPrimary/80">Please check back later.</p>
+                </div>
+            )}
         </div>
     );
 };
