@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { MenuItem, CartItem } from '../../types';
@@ -342,21 +341,21 @@ const MenuPage: React.FC = () => {
 
             <section>
                 <h2 className="text-2xl font-bold font-heading mb-4 text-textPrimary bg-black/50 backdrop-blur-lg px-4 py-2 rounded-lg inline-block border border-surface-light" style={{textShadow: '0 2px 4px rgba(0,0,0,0.5)'}}>Full Menu</h2>
-                 <div className="mb-6 bg-surface/50 backdrop-blur-lg p-2 rounded-xl shadow-lg sticky top-[calc(4rem+3.5rem+1rem)] z-30 border border-surface-light flex items-center gap-2">
+                 <div className="mb-6 max-w-lg mx-auto relative z-30 sticky top-[calc(4rem+3.5rem+1rem)]">
                     <input
                         type="text"
                         placeholder="SEARCH. EAT. REPEAT."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="flex-grow px-4 py-2 border-none bg-black/20 text-textPrimary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-textSecondary/80 font-black"
+                        className="w-full pl-4 pr-12 py-3 border-none bg-surface/50 backdrop-blur-lg text-textPrimary rounded-xl shadow-lg border border-surface-light focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-textSecondary/80 font-black"
                     />
                     <button
                         onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-                        className={`flex-shrink-0 p-3 rounded-lg transition-colors ${showFavoritesOnly ? 'bg-red-500/80 text-white' : 'bg-black/20 text-white/70 hover:text-white'}`}
+                        className="absolute inset-y-0 right-0 flex items-center pr-4"
                         aria-label="Show favorites only"
                         title="Show favorites only"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 transition-colors ${showFavoritesOnly ? 'text-red-500' : 'text-textSecondary/70 hover:text-red-400'}`} viewBox="0 0 20 20" fill="currentColor">
                             <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
                         </svg>
                     </button>
