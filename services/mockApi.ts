@@ -1,5 +1,3 @@
-
-
 // This file now contains functions to interact with the Supabase backend.
 
 import { supabase } from './supabase';
@@ -234,7 +232,9 @@ export const verifyQrCodeAndCollectOrder = async (qrToken: string): Promise<Orde
     const { data: order, error: fetchError } = await supabase.from('orders').select('*').eq('id', orderId).single();
     if(fetchError || !order) throw new Error('Order not found.');
     if (order.status === OrderStatusEnum.COLLECTED) throw new Error('Order has already been collected.');
-    if (order.status !== OrderStatusEnum.PREPARED) throw new Error('Order is not yet ready for pickup.');
+    if (order.status !== OrderStatusEnum.PREPARED && order.status !== OrderStatusEnum.PENDING) {
+        throw new Error('Order cannot be collected (it may have been cancelled).');
+    }
     
     const { data: updatedOrder, error: updateError } = await supabase
         .from('orders')
@@ -341,7 +341,7 @@ export const getRejectedOwners = async (): Promise<User[]> => {
     return data.map(mapDbUserToAppUser);
 };
 
-export const updateOwnerApprovalStatus = async (userId: string, status: 'approved' | 'rejected'): Promise<User> => {
+export const updateOwnerApprovalStatus = async (userId: string, status: 'approved' | 'rejected' | 'pending'): Promise<User> => {
     const { data, error } = await supabase
         .from('users')
         .update({ approval_status: status, approval_date: status === 'approved' ? new Date().toISOString() : null })

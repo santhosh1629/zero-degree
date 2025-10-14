@@ -1,12 +1,11 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-// FIX: Import renamed StudentPoints type
-import type { Order, MenuItem, SalesSummary, StudentPoints, TodaysDashboardStats } from '../../types';
+import type { Order, MenuItem, SalesSummary, StudentPoints, TodaysDashboardStats, User } from '../../types';
 import { OrderStatus } from '../../types';
 import { 
     getOwnerOrders, updateOrderStatus, getMenu, updateMenuAvailability, getSalesSummary, 
-    getMostSellingItems, getOrderStatusSummary, getStudentPointsList, getTodaysDashboardStats, getTodaysDetailedReport, mapDbOrderToAppOrder
+    getMostSellingItems, getOrderStatusSummary, getStudentPointsList, getTodaysDashboardStats, getTodaysDetailedReport, mapDbOrderToAppOrder,
+    getScanTerminalStaff, deleteScanTerminalStaff
 } from '../../services/mockApi';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -14,7 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 // For xlsx library loaded from CDN
 declare const XLSX: any;
 
-type DashboardTab = 'live' | 'analytics' | 'management' | 'history';
+type DashboardTab = 'live' | 'analytics' | 'management' | 'history' | 'staff';
 
 // --- Reusable Components & Icons ---
 
@@ -109,7 +108,7 @@ const DailyStats: React.FC<{ stats: TodaysDashboardStats }> = ({ stats }) => {
     );
 };
 
-const OrdersManager: React.FC<{orders: Order[], onStatusUpdate: () => void}> = ({ orders, onStatusUpdate }) => {
+const OrdersManager: React.FC<{orders: Order[], onStatusUpdate: () => void, onViewOrder: (order: Order) => void}> = ({ orders, onStatusUpdate, onViewOrder }) => {
     const [showOnlyPending, setShowOnlyPending] = useState(false);
     const handleStatusUpdate = async (orderId: string, newStatus: OrderStatus) => {
         try {
@@ -117,7 +116,15 @@ const OrdersManager: React.FC<{orders: Order[], onStatusUpdate: () => void}> = (
             onStatusUpdate();
         } catch (error) { console.error("Failed to update status:", error); }
     };
-    const activeOrders = orders.filter(o => o.status === OrderStatus.PENDING || o.status === OrderStatus.PREPARED);
+    
+    // Sort active orders by timestamp in ascending order (FIFO)
+    const activeOrders = useMemo(() => 
+        orders
+            .filter(o => o.status === OrderStatus.PENDING || o.status === OrderStatus.PREPARED)
+            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()), 
+        [orders]
+    );
+
     const displayedOrders = showOnlyPending ? activeOrders.filter(o => o.status === OrderStatus.PENDING) : activeOrders;
 
     return (
@@ -161,8 +168,14 @@ const OrdersManager: React.FC<{orders: Order[], onStatusUpdate: () => void}> = (
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap align-top"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(order.status)}`}>{order.status}</span></td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium align-top">
-                                        {order.status === OrderStatus.PENDING && <button onClick={() => handleStatusUpdate(order.id, OrderStatus.PREPARED)} className="bg-blue-600 text-white font-semibold py-2 px-3 rounded-lg text-xs hover:bg-blue-700 transition-colors">Mark as Prepared</button>}
-                                        {order.status === OrderStatus.PREPARED && <p className="text-gray-400 text-xs">Waiting for customer pickup...</p>}
+                                        <div className="flex items-center justify-end gap-2 flex-wrap">
+                                            <button onClick={() => onViewOrder(order)} className="text-indigo-400 hover:text-indigo-300 font-semibold text-xs py-2 px-3 rounded-lg border border-indigo-500 hover:bg-indigo-500/10 transition-colors">View</button>
+                                            {order.status === OrderStatus.PENDING && 
+                                                <button onClick={() => handleStatusUpdate(order.id, OrderStatus.PREPARED)} className="bg-blue-600 text-white font-semibold py-2 px-3 rounded-lg text-xs hover:bg-blue-700 transition-colors">
+                                                    Mark as Prepared
+                                                </button>
+                                            }
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -217,18 +230,102 @@ const OrderHistoryView: React.FC<{ orders: Order[] }> = ({ orders }) => {
     );
 };
 
-const OwnerDashboard: React.FC = () => {
-    const { user, updateUser } = useAuth();
-    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+const StaffManagementView: React.FC<{
+    staff: User[];
+    onAddStaff: (details: { name: string, phone: string, password: string }) => Promise<void>;
+    onDeleteStaff: (userId: string) => Promise<void>;
+}> = ({ staff, onAddStaff, onDeleteStaff }) => {
+    const [name, setName] = useState('');
+    const [phone, setPhone] = useState('');
+    const [password, setPassword] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        if (password.length < 6) {
+            setError("Password must be at least 6 characters.");
+            return;
+        }
+        if (!/^\d{10}$/.test(phone)) {
+            setError("Please enter a valid 10-digit phone number.");
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            await onAddStaff({ name, phone, password });
+            setName('');
+            setPhone('');
+            setPassword('');
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
     
-    // State for the image modal
+    return (
+        <div className="space-y-8">
+            <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                <h3 className="text-xl font-bold text-gray-200 mb-4">Create New Staff Account</h3>
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                    <div className="md:col-span-1">
+                        <label className="text-sm font-medium text-gray-400 block mb-1">Name</label>
+                        <input type="text" value={name} onChange={e => setName(e.target.value)} required className="w-full input-field" />
+                    </div>
+                    <div className="md:col-span-1">
+                        <label className="text-sm font-medium text-gray-400 block mb-1">Phone</label>
+                        <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} required className="w-full input-field" />
+                    </div>
+                    <div className="md:col-span-1">
+                        <label className="text-sm font-medium text-gray-400 block mb-1">Password</label>
+                        <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full input-field" />
+                    </div>
+                    <button type="submit" disabled={isSubmitting} className="w-full btn-primary h-10">
+                        {isSubmitting ? 'Creating...' : 'Add Staff'}
+                    </button>
+                    {error && <p className="text-red-400 text-sm md:col-span-4">{error}</p>}
+                </form>
+            </div>
+            <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                <h3 className="text-xl font-bold text-gray-200 mb-4">Current Staff ({staff.length})</h3>
+                <div className="space-y-3">
+                    {staff.map(s => (
+                        <div key={s.id} className="flex justify-between items-center bg-gray-700/50 p-3 rounded-lg">
+                            <div>
+                                <p className="font-semibold text-white">{s.username}</p>
+                                <p className="text-sm text-gray-400">{s.phone}</p>
+                            </div>
+                            <button onClick={() => onDeleteStaff(s.id)} className="text-sm bg-red-800 text-white font-semibold px-3 py-1.5 rounded-md hover:bg-red-700">
+                                Remove
+                            </button>
+                        </div>
+                    ))}
+                    {staff.length === 0 && <p className="text-gray-500 text-center py-4">No staff accounts created yet.</p>}
+                </div>
+            </div>
+             <style>{`
+                .input-field { padding: 0.5rem 0.75rem; border-radius: 0.375rem; border: 1px solid #4B5563; background-color: #1F2937; color: white; }
+                .btn-primary { background-color: #4F46E5; color: white; font-weight: bold; padding: 0.5rem 1rem; border-radius: 0.375rem; }
+                .btn-primary:hover { background-color: #4338CA; }
+                .btn-primary:disabled { background-color: #4f46e580; cursor: not-allowed; }
+            `}</style>
+        </div>
+    );
+}
+
+const OwnerDashboard: React.FC = () => {
+    const { user, updateUser, registerStaffUser } = useAuth();
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+    const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+    
     const [imageSource, setImageSource] = useState<File | null>(null);
     const [imageUrlInput, setImageUrlInput] = useState('');
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [imageError, setImageError] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [activeImageTab, setActiveImageTab] = useState<'upload' | 'url'>('upload');
-
 
     const [activeTab, setActiveTab] = useState<DashboardTab>('live');
     const [loading, setLoading] = useState(true);
@@ -239,18 +336,21 @@ const OwnerDashboard: React.FC = () => {
     const [mostSellingItems, setMostSellingItems] = useState<{ name: string; count: number }[]>([]);
     const [orderStatusSummary, setOrderStatusSummary] = useState<{ name: string; value: number }[]>([]);
     const [customerPoints, setCustomerPoints] = useState<StudentPoints[]>([]);
-
+    const [staffAccounts, setStaffAccounts] = useState<User[]>([]);
+    
     const fetchData = useCallback(async () => {
+        if (!user) return;
         try {
-            const [statsData, ordersData, menuData, salesData, sellingItemsData, statusSummaryData, customerPointsData] = await Promise.all([
+            const [statsData, ordersData, menuData, salesData, sellingItemsData, statusSummaryData, customerPointsData, staffData] = await Promise.all([
                 getTodaysDashboardStats(), getOwnerOrders(), getMenu(), getSalesSummary(), 
-                getMostSellingItems(), getOrderStatusSummary(), getStudentPointsList()
+                getMostSellingItems(), getOrderStatusSummary(), getStudentPointsList(), getScanTerminalStaff()
             ]);
             setTodaysStats(statsData); setOrders(ordersData); setMenu(menuData); setSalesSummary(salesData);
             setMostSellingItems(sellingItemsData); setOrderStatusSummary(statusSummaryData); setCustomerPoints(customerPointsData);
+            setStaffAccounts(staffData);
         } catch (error) { console.error("Failed to fetch dashboard data", error); } 
         finally { setLoading(false); }
-    }, []);
+    }, [user]);
 
     useEffect(() => {
         fetchData();
@@ -276,6 +376,18 @@ const OwnerDashboard: React.FC = () => {
             supabase.removeChannel(channel);
         };
     }, [fetchData]);
+    
+    const handleAddStaff = async (details: { name: string; phone: string; password: string }) => {
+        await registerStaffUser(details.name, details.phone, details.password);
+        fetchData(); // Refresh list
+    };
+
+    const handleDeleteStaff = async (userId: string) => {
+        if (window.confirm("Are you sure you want to remove this staff member? This action cannot be undone.")) {
+            await deleteScanTerminalStaff(userId);
+            fetchData(); // Refresh list
+        }
+    };
 
     const handleMenuAvailabilityChange = async (itemId: string, isAvailable: boolean) => {
         try {
@@ -284,59 +396,31 @@ const OwnerDashboard: React.FC = () => {
         } catch (error) { console.error("Failed to update menu availability", error); }
     };
     
-    // --- Image Processing Logic ---
     const processImage = async (source: File | string): Promise<string | null> => {
         return new Promise((resolve, reject) => {
             const img = new Image();
-            const reader = new FileReader();
-
             img.onload = () => {
-                URL.revokeObjectURL(img.src); // Clean up blob URL
+                URL.revokeObjectURL(img.src);
                 const MAX_WIDTH = 150;
-                let width = img.width;
-                let height = img.height;
-
-                const scale = MAX_WIDTH / width;
-                width = MAX_WIDTH;
-                height = height * scale;
-                
-                const canvas = document.createElement('canvas');
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                if (!ctx) return reject(new Error('Could not get canvas context'));
-                
-                ctx.drawImage(img, 0, 0, width, height);
-
-                const TARGET_SIZE_BYTES = 2 * 1024;
-                let quality = 0.9;
-                let dataUrl = canvas.toDataURL('image/jpeg', quality);
-                let estimatedSize = dataUrl.length * 0.75;
-
-                while (estimatedSize > TARGET_SIZE_BYTES && quality > 0.1) {
-                    quality = parseFloat((quality - 0.1).toFixed(1));
-                    dataUrl = canvas.toDataURL('image/jpeg', quality);
-                    estimatedSize = dataUrl.length * 0.75;
+                let width = img.width, height = img.height;
+                if (width > MAX_WIDTH) {
+                    const scale = MAX_WIDTH / width;
+                    width = MAX_WIDTH;
+                    height *= scale;
                 }
-                
-                resolve(dataUrl);
+                const canvas = document.createElement('canvas');
+                canvas.width = width; canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return reject(new Error('Canvas context failed'));
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', 0.9));
             };
-            
-            img.onerror = () => reject(new Error('Failed to load image. If using a URL, check for CORS issues.'));
-
+            img.onerror = () => reject(new Error('Image load failed'));
             if (typeof source === 'string') {
-                img.crossOrigin = "Anonymous"; // Attempt to handle CORS
-                fetch(source, { mode: 'cors' })
-                    .then(res => {
-                        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-                        return res.blob();
-                    })
-                    .then(blob => {
-                        img.src = URL.createObjectURL(blob);
-                    })
-                    .catch(() => reject(new Error('Failed to fetch image from URL. It may be protected by CORS policy.')));
+                img.crossOrigin = "Anonymous";
+                img.src = source;
             } else {
-                 img.src = URL.createObjectURL(source);
+                img.src = URL.createObjectURL(source);
             }
         });
     };
@@ -344,10 +428,7 @@ const OwnerDashboard: React.FC = () => {
     const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            if (file.size > 5 * 1024 * 1024) { // 5MB limit
-                setImageError('File is too large. Max size is 5MB.');
-                return;
-            }
+            if (file.size > 5 * 1024 * 1024) { setImageError('File is too large (max 5MB).'); return; }
             setImageSource(file);
             setImagePreview(URL.createObjectURL(file));
             setImageError('');
@@ -356,45 +437,33 @@ const OwnerDashboard: React.FC = () => {
 
     const handleImageSubmit = async () => {
         const sourceToProcess = activeImageTab === 'upload' ? imageSource : imageUrlInput;
-        if (!sourceToProcess || !user) {
-            setImageError('Please select a file or provide a URL.');
-            return;
-        }
-
+        if (!sourceToProcess || !user) { setImageError('Please select a file or provide a URL.'); return; }
         setIsProcessing(true);
         setImageError('');
         try {
             const compressedDataUrl = await processImage(sourceToProcess);
             if (!compressedDataUrl) throw new Error("Image processing failed.");
-            
             await updateUser({ profileImageUrl: compressedDataUrl });
-            
             closeProfileModal();
-
-        } catch (error) {
-            setImageError((error as Error).message);
-        } finally {
-            setIsProcessing(false);
-        }
+        } catch (error) { setImageError((error as Error).message);
+        } finally { setIsProcessing(false); }
     };
     
     const closeProfileModal = () => {
         setIsProfileModalOpen(false);
-        setImageError('');
-        setImageSource(null);
-        setImageUrlInput('');
+        setImageError(''); setImageSource(null); setImageUrlInput('');
         if (imagePreview) URL.revokeObjectURL(imagePreview);
         setImagePreview(null);
     }
 
-
     const renderContent = () => {
         if (loading || !todaysStats || !salesSummary) return <div className="text-center p-8 text-gray-300">Loading dashboard data...</div>;
         switch (activeTab) {
-            case 'live': return <div className="space-y-6"><DailyStats stats={todaysStats} /><OrdersManager orders={orders} onStatusUpdate={fetchData} /></div>;
+            case 'live': return <div className="space-y-6"><DailyStats stats={todaysStats} /><OrdersManager orders={orders} onStatusUpdate={fetchData} onViewOrder={setViewingOrder}/></div>;
             case 'analytics': return <AnalyticsView salesSummary={salesSummary} mostSellingItems={mostSellingItems} orderStatusSummary={orderStatusSummary} />;
             case 'management': return <ManagementView menu={menu} customerPoints={customerPoints} onAvailabilityChange={handleMenuAvailabilityChange} />;
             case 'history': return <OrderHistoryView orders={orders} />;
+            case 'staff': return <StaffManagementView staff={staffAccounts} onAddStaff={handleAddStaff} onDeleteStaff={handleDeleteStaff} />;
             default: return null;
         }
     };
@@ -405,7 +474,6 @@ const OwnerDashboard: React.FC = () => {
     
     const ProfilePlaceholderIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" /></svg>);
     const EditIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L16.732 3.732z" /></svg>);
-
 
     return (
         <div>
@@ -428,21 +496,19 @@ const OwnerDashboard: React.FC = () => {
                 </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 mb-6 bg-gray-800 p-2 rounded-lg border border-gray-700"><TabButton tab="live" label="Live View" /><TabButton tab="analytics" label="Analytics" /><TabButton tab="management" label="Management" /><TabButton tab="history" label="Order History" /></div>
+            <div className="flex flex-wrap gap-2 mb-6 bg-gray-800 p-2 rounded-lg border border-gray-700"><TabButton tab="live" label="Live View" /><TabButton tab="analytics" label="Analytics" /><TabButton tab="management" label="Management" /><TabButton tab="history" label="Order History" /><TabButton tab="staff" label="Staff" /></div>
             {renderContent()}
 
             {isProfileModalOpen && (
                  <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
                     <div className="bg-gray-800 border border-gray-700 p-6 rounded-lg shadow-xl w-full max-w-lg animate-fade-in-down">
                         <h2 className="text-xl font-bold mb-4 text-white">Update Profile Picture</h2>
-                        
                         <div className="border-b border-gray-600 mb-4">
                             <nav className="-mb-px flex space-x-6">
                                 <button onClick={() => setActiveImageTab('upload')} className={`py-2 px-1 border-b-2 font-semibold text-sm ${activeImageTab === 'upload' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-gray-400 hover:text-white'}`}>Upload File</button>
                                 <button onClick={() => setActiveImageTab('url')} className={`py-2 px-1 border-b-2 font-semibold text-sm ${activeImageTab === 'url' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-gray-400 hover:text-white'}`}>From URL</button>
                             </nav>
                         </div>
-
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                             <div>
                                 {activeImageTab === 'upload' && (
@@ -465,20 +531,76 @@ const OwnerDashboard: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-
                         {imageError && <p className="text-red-400 text-sm mt-4 text-center">{imageError}</p>}
-                        
                         <div className="flex justify-end gap-4 mt-6">
                             <button onClick={closeProfileModal} className="bg-gray-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-500 transition-colors">Cancel</button>
                             <button onClick={handleImageSubmit} disabled={isProcessing} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-indigo-500/50">
-                                {isProcessing ? (
-                                    <span className="flex items-center"><svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Processing...</span>
-                                ) : 'Save Image'}
+                                {isProcessing ? 'Processing...' : 'Save Image'}
                             </button>
                         </div>
                     </div>
                  </div>
             )}
+            {viewingOrder && <OrderDetailsPopup order={viewingOrder} onClose={() => setViewingOrder(null)} onStatusUpdate={fetchData} />}
+        </div>
+    );
+};
+
+const OrderDetailsPopup: React.FC<{ order: Order; onClose: () => void; onStatusUpdate: () => void; }> = ({ order, onClose, onStatusUpdate }) => {
+    const [isUpdating, setIsUpdating] = useState(false);
+    const handleStatusUpdate = async (orderId: string, newStatus: OrderStatus) => {
+        setIsUpdating(true);
+        try {
+            await updateOrderStatus(orderId, newStatus);
+            onStatusUpdate();
+            onClose();
+        } catch (error) { 
+            console.error("Failed to update status:", error); 
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl w-full max-w-md aspect-square relative flex flex-col animate-pop-in" onClick={e => e.stopPropagation()}>
+                <button onClick={onClose} className="absolute top-3 right-3 text-gray-400 hover:text-white z-10">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+                <div className="p-5 border-b border-gray-700">
+                    <h2 className="text-xl font-bold text-white">Order Details</h2>
+                    <p className="text-sm text-gray-400">ID: #{order.id.slice(-6)}</p>
+                </div>
+                <div className="p-5 flex-grow overflow-y-auto scrollbar-thin">
+                    <div className="space-y-4 text-sm">
+                        <div><span className="font-semibold text-gray-400 w-28 inline-block">Customer:</span> <span className="text-white">{order.studentName}</span></div>
+                        <div><span className="font-semibold text-gray-400 w-28 inline-block">Order Time:</span> <span className="text-white">{new Date(order.timestamp).toLocaleString()}</span></div>
+                        <div><span className="font-semibold text-gray-400 w-28 inline-block">Payment Status:</span> <span className="text-green-400 font-semibold">Paid</span></div>
+                        <div>
+                            <span className="font-semibold text-gray-400 w-28 inline-block">Current Status:</span> 
+                            <span className={`ml-2 px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusBadgeClass(order.status)}`}>{order.status}</span>
+                        </div>
+                        <div>
+                            <h4 className="font-semibold text-gray-400 mb-1">Items Ordered:</h4>
+                            <ul className="list-disc list-inside space-y-1 pl-2 text-gray-300">
+                                {order.items.map(i => (
+                                    <li key={i.id}>{i.name} (x{i.quantity})</li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div className="pt-2 border-t border-gray-700">
+                            <span className="font-semibold text-gray-400 w-28 inline-block">Total Amount:</span> <span className="font-bold text-xl text-white">₹{order.totalAmount.toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>
+                {order.status === OrderStatus.PENDING && (
+                    <div className="p-4 border-t border-gray-700">
+                        <button onClick={() => handleStatusUpdate(order.id, OrderStatus.PREPARED)} disabled={isUpdating} className="w-full bg-blue-600 text-white font-semibold py-2 px-3 rounded-lg text-sm hover:bg-blue-700 transition-colors disabled:bg-blue-800 disabled:cursor-wait">
+                            {isUpdating ? 'Updating...' : 'Mark as Prepared'}
+                        </button>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

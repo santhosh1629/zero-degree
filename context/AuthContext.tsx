@@ -10,6 +10,7 @@ interface AuthContextType {
   login: (phoneOrEmail: string, password: string) => Promise<User>;
   register: (name: string, phone: string, password: string) => Promise<User>;
   registerOwner: (name: string, email: string, phone: string, password: string, canteenName: string, idProofUrl: string) => Promise<User>;
+  registerStaffUser: (name: string, phone: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
   updateUser: (data: Partial<User>) => Promise<void>;
   requestPasswordReset: (phone: string) => Promise<{ message: string }>;
@@ -168,6 +169,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return appUser;
   }, []);
   
+  const registerStaffUser = useCallback(async (name: string, phone: string, password: string): Promise<User> => {
+    const { data, error } = await supabase
+        .from('users')
+        .insert({
+            username: name,
+            phone,
+            password,
+            role: Role.CANTEEN_OWNER,
+            approval_status: 'approved', // Immediately active
+            is_first_login: true,
+        })
+        .select()
+        .single();
+
+    if (error) throw new Error(error.message);
+    
+    const appUser = mapDbUserToAppUser(data);
+    if (!appUser) throw new Error('Registration failed.');
+    
+    // Don't log in automatically, just confirm registration
+    return appUser;
+  }, []);
+
   const updateUser = useCallback(async (data: Partial<User>) => {
     if (!user) throw new Error("No user is logged in.");
 
@@ -227,7 +251,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, registerOwner, logout, updateUser, requestPasswordReset, verifyOtpAndResetPassword }}>
+    <AuthContext.Provider value={{ user, loading, login, register, registerOwner, registerStaffUser, logout, updateUser, requestPasswordReset, verifyOtpAndResetPassword }}>
       {children}
     </AuthContext.Provider>
   );

@@ -107,6 +107,14 @@ const HomePage: React.FC = () => {
                         I'm a Restaurant Owner
                     </button>
                 </div>
+                <div className="mt-6 w-full max-w-xs sm:max-w-md animate-fade-in-down" style={{animationDelay: '1.1s'}}>
+                    <button
+                        onClick={() => navigate('/owner/scan-terminal')}
+                        className="w-full text-textSecondary/90 font-semibold py-3 px-4 rounded-xl transition-all duration-300 hover:bg-surface-light/20"
+                    >
+                        Staff / QR Scan Terminal
+                    </button>
+                </div>
             </main>
         </div>
         </>

@@ -1,4 +1,5 @@
 
+
 import React, { useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -40,7 +41,10 @@ import DailySpecialsPage from './pages/owner/DailySpecialsPage';
 import OwnerFeedbackPage from './pages/owner/FeedbackPage';
 import OffersPage from './pages/owner/OffersPage';
 import DemoOrdersPage from './pages/owner/DemoOrdersPage';
-// import SubscriptionPage from './pages/owner/SubscriptionPage'; // Removed
+import ScanApprovalPage from './pages/owner/ScanApprovalPage';
+import ScanOnlyPage from './pages/owner/ScanOnlyPage';
+import ScanTerminalLoginPage from './pages/owner/ScanTerminalLoginPage';
+import ScanTerminalHomePage from './pages/owner/ScanTerminalHomePage';
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -87,7 +91,12 @@ const AppRoutes = () => {
                  if (user.approvalStatus !== 'approved') {
                     return <Navigate to="/login-owner" replace />;
                 }
-                return <Navigate to="/owner/dashboard" replace />;
+                // Differentiate between full owner and scan-only staff
+                if (user.canteenName) {
+                    return <Navigate to="/owner/dashboard" replace />;
+                } else {
+                    return <Navigate to="/scan-terminal/home" replace />;
+                }
             case Role.ADMIN:
                 return <Navigate to="/admin/dashboard" replace />;
             default:
@@ -145,7 +154,23 @@ const AppRoutes = () => {
                 <Route path="menu" element={<DailySpecialsPage />} />
                 <Route path="feedback" element={<OwnerFeedbackPage />} />
                 <Route path="offers" element={<OffersPage />} />
-            </Route>
+            </g-4>
+
+            {/* Standalone Owner pages */}
+            <Route path="/owner/scan-approval" element={<ScanApprovalPage />} />
+            <Route path="/owner/scan-terminal" element={<ScanTerminalLoginPage />} />
+            <Route path="/owner/scan-only" element={
+                 <ProtectedRoute allowedRoles={[Role.CANTEEN_OWNER]}>
+                    <ScanOnlyPage />
+                </ProtectedRoute>
+            } />
+
+             {/* Standalone Scan Terminal page */}
+             <Route path="/scan-terminal/home" element={
+                 <ProtectedRoute allowedRoles={[Role.CANTEEN_OWNER]}>
+                    <ScanTerminalHomePage />
+                </ProtectedRoute>
+            } />
             
             {/* Admin Routes */}
             <Route path="/admin/dashboard" element={
