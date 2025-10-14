@@ -164,11 +164,16 @@ const DailySpecialsPage: React.FC = () => {
             return;
         }
 
+        // Revoke the old blob URL to prevent memory leaks
+        if (imagePreview && imagePreview.startsWith('blob:')) {
+            URL.revokeObjectURL(imagePreview);
+        }
+
         setImageError('');
         setIsProcessingImage(true);
         
-        const previewUrl = URL.createObjectURL(file);
-        setImagePreview(previewUrl);
+        const newPreviewUrl = URL.createObjectURL(file);
+        setImagePreview(newPreviewUrl);
 
         try {
             const compressedDataUrl = await processAndCompressImage(file);
@@ -176,11 +181,9 @@ const DailySpecialsPage: React.FC = () => {
         } catch (err) {
             setImageError('Could not process image.');
             setImagePreview(null);
+            URL.revokeObjectURL(newPreviewUrl); // Also revoke the new one on error
         } finally {
             setIsProcessingImage(false);
-            if (previewUrl && !(editingItem && previewUrl === editingItem.imageUrl)) { // Avoid revoking original URL
-               URL.revokeObjectURL(previewUrl);
-            }
         }
     };
 

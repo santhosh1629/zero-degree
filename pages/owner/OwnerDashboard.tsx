@@ -484,6 +484,12 @@ const OwnerDashboard: React.FC = () => {
         const file = e.target.files?.[0];
         if (file) {
             if (file.size > 5 * 1024 * 1024) { setImageError('File is too large (max 5MB).'); return; }
+            
+            // Revoke old object URL to prevent memory leaks
+            if (imagePreview && imagePreview.startsWith('blob:')) {
+                URL.revokeObjectURL(imagePreview);
+            }
+
             setImageSource(file);
             setImagePreview(URL.createObjectURL(file));
             setImageError('');

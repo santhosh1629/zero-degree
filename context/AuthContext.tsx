@@ -76,7 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (user && user.role === Role.CANTEEN_OWNER) {
                 inactivityTimer = setTimeout(() => {
                     console.log("Owner inactive for 15 minutes, logging out and closing canteen.");
-                    logout(true); // Silent logout
+                    logout(true).catch(err => console.error("Silent logout failed:", err)); // Silent logout with error handling
                 }, INACTIVITY_TIMEOUT);
             }
         };
