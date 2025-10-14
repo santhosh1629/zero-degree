@@ -154,7 +154,7 @@ const AppRoutes = () => {
                 <Route path="menu" element={<DailySpecialsPage />} />
                 <Route path="feedback" element={<OwnerFeedbackPage />} />
                 <Route path="offers" element={<OffersPage />} />
-            </g-4>
+            </Route>
 
             {/* Standalone Owner pages */}
             <Route path="/owner/scan-approval" element={<ScanApprovalPage />} />
