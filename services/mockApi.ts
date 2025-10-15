@@ -236,7 +236,7 @@ export const verifyQrCodeAndCollectOrder = async (qrToken: string, staffId: stri
     
     const { data: updatedOrder, error: updateError } = await supabase
         .from('orders')
-        .update({ status: OrderStatusEnum.COLLECTED, collected_by_staff_id: staffId })
+        .update({ status: OrderStatusEnum.COLLECTED })
         .eq('id', orderId)
         .select('*')
         .single();
