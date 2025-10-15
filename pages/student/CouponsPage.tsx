@@ -1,8 +1,8 @@
 
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
-// FIX: Use renamed function for consistency
 import { getAllStudentCoupons } from '../../services/mockApi';
 import type { Offer } from '../../types';
 import { useNavigate } from 'react-router-dom';

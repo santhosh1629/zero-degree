@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { getOwnerDemoOrders } from '../../services/mockApi';
 import type { Order } from '../../types';
@@ -16,7 +17,8 @@ const DemoOrderCard: React.FC<{ order: Order }> = ({ order }) => {
                                 DEMO-{order.id.slice(-6).toUpperCase()}
                             </p>
                             <p className="text-sm text-gray-400">
-                                Placed by: {order.customerName}
+                                {/* Fix: Changed customerName to studentName to match the Order type. */}
+                                Placed by: {order.studentName}
                             </p>
                             <p className="text-xs text-gray-500">
                                 {new Date(order.timestamp).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}

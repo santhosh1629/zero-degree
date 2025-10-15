@@ -101,7 +101,6 @@ const CartPage: React.FC = () => {
         if (!user) return;
         setIsPlacingOrder(true);
         try {
-            // FIX: Use studentId and studentName as expected by the updated function.
             const orderPayload = {
                 studentId: user.id, studentName: user.username,
                 items: cart.map(({ id, name, quantity, price, notes, imageUrl }) => ({ id, name, quantity, price, notes, imageUrl })),
@@ -119,7 +118,6 @@ const CartPage: React.FC = () => {
     const handleRealOrderPlacement = async (paymentId: string) => {
         if (!user) return;
         try {
-            // FIX: Use studentId and studentName as expected by the updated function.
             const orderPayload = {
                 studentId: user.id, studentName: user.username,
                 items: cart.map(({ id, name, quantity, price, notes, imageUrl }) => ({ id, name, quantity, price, notes, imageUrl })),

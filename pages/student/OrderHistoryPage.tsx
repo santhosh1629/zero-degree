@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import type { Order, CartItem, MenuItem } from '../../types';
 import { OrderStatus } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-// FIX: Renamed getCustomerOrders to getStudentOrders to fix import error.
 import { getStudentOrders, getMenu } from '../../services/mockApi';
 
 const getCartFromStorage = (): CartItem[] => {

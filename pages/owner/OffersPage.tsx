@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { getAllOffersForOwner, createOffer, updateOfferStatus } from '../../services/mockApi';
 import type { Offer } from '../../types';
 
-// FIX: FormState correctly omits studentId from the Offer type.
 type FormState = Omit<Offer, 'id' | 'isUsed' | 'studentId' | 'isReward'>;
 
 const initialFormState: FormState = { code: '', description: '', discountType: 'fixed', discountValue: 0, isActive: true };

@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
-// FIX: Use the renamed getStudentProfile function.
 import { getRewards, getStudentProfile, redeemReward } from '../../services/mockApi';
-// FIX: Use the renamed StudentProfile type.
 import type { Reward, StudentProfile } from '../../types';
 import { Link } from 'react-router-dom';
 

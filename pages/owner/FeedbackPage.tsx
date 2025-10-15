@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { getFeedbacks } from '../../services/mockApi';
 import type { Feedback } from '../../types';
@@ -19,7 +20,8 @@ const FeedbackCard: React.FC<{ feedback: Feedback }> = ({ feedback }) => {
             <div className="flex justify-between items-start">
                 <div>
                     <p className="font-bold text-lg text-gray-200">{feedback.itemName}</p>
-                    <p className="text-sm text-gray-400">Reviewed by: <span className="font-medium">{feedback.customerName}</span></p>
+                    {/* Fix: Changed customerName to studentName to match the Feedback type. */}
+                    <p className="text-sm text-gray-400">Reviewed by: <span className="font-medium">{feedback.studentName}</span></p>
                 </div>
                 <StarDisplay rating={feedback.rating} />
             </div>

@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
-// FIX: Use the renamed getStudentProfile function.
 import { getStudentProfile } from '../../services/mockApi';
-// FIX: Use the renamed StudentProfile type.
 import type { StudentProfile } from '../../types';
 import { Link } from 'react-router-dom';
 

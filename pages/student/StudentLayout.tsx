@@ -1,10 +1,10 @@
 
 
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import DynamicBackground from '../../components/student/DynamicBackground';
 import { useAuth } from '../../context/AuthContext';
-// FIX: Renamed getCustomerOrders to getStudentOrders to fix import error.
 import { getStudentOrders } from '../../services/mockApi';
 import { Order, OrderStatus } from '../../types';
 
