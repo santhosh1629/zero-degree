@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useNavigate } from 'react-router-dom';
@@ -10,7 +11,7 @@ const getCartFromStorage = (): CartItem[] => {
     const cart = localStorage.getItem('cart');
     // Ensure cart items are not demo items unless explicitly marked
     const parsedCart = cart ? JSON.parse(cart) : [];
-    return parsedCart.filter((item: any) => !item.isDemo);
+    return parsedCart;
 };
 
 const saveCartToStorage = (cart: CartItem[]) => {
@@ -52,7 +53,6 @@ const OrderCard: React.FC<{ order: Order; onReorder: (order: Order) => void; }> 
                 <div>
                     <p className="font-bold font-heading text-lg flex items-center gap-2">
                         Order #{order.id.slice(-6)}
-                        {order.orderType === 'demo' && <span className="text-xs font-semibold bg-blue-500/50 text-blue-200 px-2 py-1 rounded-full">DEMO</span>}
                     </p>
                     <p className="text-sm text-textSecondary">{order.timestamp.toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
@@ -188,7 +188,6 @@ const OrderHistoryPage: React.FC = () => {
                         ...fullMenuItem,
                         quantity: orderItem.quantity,
                         notes: orderItem.notes,
-                        isDemo: false,
                     };
                     currentCart.push(newCartItem);
                 }

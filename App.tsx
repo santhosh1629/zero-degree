@@ -1,6 +1,4 @@
 
-
-
 import React, { useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -29,8 +27,6 @@ import FeedbackPage from './pages/student/FeedbackPage';
 import CouponsPage from './pages/student/CouponsPage';
 import ProfilePage from './pages/student/ProfilePage';
 import RewardsPage from './pages/student/RewardsPage';
-import DemoMenuPage from './pages/student/DemoMenuPage';
-import DemoOrderCollectedPage from './pages/student/DemoOrderSuccessPage';
 
 // Canteen Owner pages
 import OwnerLayout from './pages/owner/OwnerLayout';
@@ -41,14 +37,10 @@ import RewardsManagementPage from './pages/owner/RewardsManagementPage';
 import DailySpecialsPage from './pages/owner/DailySpecialsPage';
 import OwnerFeedbackPage from './pages/owner/FeedbackPage';
 import OffersPage from './pages/owner/OffersPage';
-import DemoOrdersPage from './pages/owner/DemoOrdersPage';
 import ScanApprovalPage from './pages/owner/ScanApprovalPage';
 import ScanOnlyPage from './pages/owner/ScanOnlyPage';
 import ScanTerminalLoginPage from './pages/owner/ScanTerminalLoginPage';
 import ScanTerminalHomePage from './pages/owner/ScanTerminalHomePage';
-import BankDetailsPage from './pages/owner/BankDetailsPage';
-import CanteenGalleryPage from './pages/owner/CanteenGalleryPage';
-import SubscriptionPage from './pages/owner/SubscriptionPage';
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -135,8 +127,6 @@ const AppRoutes = () => {
                 <Route path="menu/:itemId" element={<FoodDetailPage />} />
                 <Route path="cart" element={<CartPage />} />
                 <Route path="order-success/:orderId" element={<OrderSuccessPage />} />
-                <Route path="demo-menu" element={<DemoMenuPage />} />
-                <Route path="demo-order-collected/:orderId" element={<DemoOrderCollectedPage />} />
                 <Route path="history" element={<OrderHistoryPage />} />
                 <Route path="coupons" element={<CouponsPage />} />
                 <Route path="rewards" element={<RewardsPage />} />
@@ -152,15 +142,11 @@ const AppRoutes = () => {
             }>
                 <Route path="dashboard" element={<OwnerDashboard />} />
                 <Route path="scan" element={<ScanQrPage />} />
-                <Route path="demo-orders" element={<DemoOrdersPage />} />
                 <Route path="popularity" element={<FoodPopularityPage />} />
                 <Route path="rewards" element={<RewardsManagementPage />} />
                 <Route path="menu" element={<DailySpecialsPage />} />
                 <Route path="feedback" element={<OwnerFeedbackPage />} />
                 <Route path="offers" element={<OffersPage />} />
-                <Route path="gallery" element={<CanteenGalleryPage />} />
-                <Route path="bank-details" element={<BankDetailsPage />} />
-                <Route path="subscription" element={<SubscriptionPage />} />
             </Route>
 
             {/* Standalone Owner pages */}

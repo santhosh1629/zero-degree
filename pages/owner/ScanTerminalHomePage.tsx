@@ -18,8 +18,8 @@ const ScanTerminalHomePage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-900 text-white p-4">
-            <header className="flex justify-between items-center mb-6 max-w-md mx-auto">
+        <div className="min-h-screen bg-gray-900 text-white flex flex-col p-4">
+            <header className="flex justify-between items-center max-w-md mx-auto w-full">
                 <div>
                     <h1 className="text-xl font-bold">Scan Terminal</h1>
                     <p className="text-sm text-gray-400">Welcome, {user?.username}</p>
@@ -31,7 +31,7 @@ const ScanTerminalHomePage: React.FC = () => {
                     Logout
                 </button>
             </header>
-            <main>
+            <main className="flex-grow flex items-center justify-center">
                 <ScanQrPage />
             </main>
         </div>

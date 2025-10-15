@@ -1,7 +1,8 @@
 
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { getOwnerDemoOrders } from '../../services/mockApi';
+// Fix: 'getOwnerDemoOrders' is not an exported member. Changed to 'getOwnerOrders' as suggested by the error.
+import { getOwnerOrders } from '../../services/mockApi';
 import type { Order } from '../../types';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -78,7 +79,8 @@ const DemoOrdersPage: React.FC = () => {
     const fetchDemoOrders = useCallback(async () => {
         try {
             setLoading(true);
-            const data = await getOwnerDemoOrders();
+            // Fix: 'getOwnerDemoOrders' is not an exported member. Changed to 'getOwnerOrders'.
+            const data = await getOwnerOrders();
             setDemoOrders(data);
         } catch (error) {
             console.error("Failed to fetch demo orders", error);

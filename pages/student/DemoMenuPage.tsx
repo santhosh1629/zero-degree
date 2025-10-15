@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { MenuItem, CartItem } from '../../types';
-import { getDemoMenu } from '../../services/mockApi';
+// Fix: 'getDemoMenu' is not exported from mockApi. Using 'getMenu' instead.
+import { getMenu } from '../../services/mockApi';
 
 const getCartFromStorage = (): CartItem[] => {
     const cart = localStorage.getItem('cart');
@@ -52,7 +53,8 @@ const DemoMenuPage: React.FC = () => {
 
     useEffect(() => {
         const fetchDemoData = async () => {
-            const demoItems = await getDemoMenu();
+            // Fix: 'getDemoMenu' is not exported from mockApi. Using 'getMenu' instead.
+            const demoItems = await getMenu();
             setMenu(demoItems);
         };
         fetchDemoData();

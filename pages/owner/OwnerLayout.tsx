@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -15,11 +14,7 @@ const FeedbackDrawerIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" classN
 const PopularityIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>);
 const RewardsIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 11l3-3m0 0l3 3m-3-3v8m0-13a9 9 0 110 18 9 9 0 010-18z" /><path d="M9 11l3-3m0 0l3 3m-3-3v8m-9 5a9 9 0 1118 0 9 9 0 01-18 0z" /></svg>);
 const LogoutIcon: React.FC<{className?: string}> = ({ className = "h-5 w-5 mr-3" }) => (<svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>);
-const DemoOrdersDrawerIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.428 15.428a4 4 0 00-5.656 0l-2.829 2.829a4 4 0 01-5.656-5.656l2.829-2.829a4 4 0 005.656-5.656l-2.829-2.829a4 4 0 00-5.656 5.656l2.829 2.829" /><path d="M12 21v-4m0 0V6.5a3.5 3.5 0 00-3.5-3.5H8.5a3.5 3.5 0 000 7h3.5" /></svg>);
 const OffersIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 12V4a2 2 0 00-2-2H6a2 2 0 00-2 2v8l6 6 6-6z" /><path strokeLinecap="round" strokeLinejoin="round" d="M11 7h.01" /></svg>);
-const BankIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>);
-const GalleryIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>);
-const SubscriptionIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m-1-15l-3 3m10-3l-3 3m2 12l3 3m-10-3l3 3M12 21a9 9 0 110-18 9 9 0 010 18z" /></svg>);
 
 const OwnerLayout: React.FC = () => {
     const { user, logout } = useAuth();
@@ -66,10 +61,6 @@ const OwnerLayout: React.FC = () => {
         { to: "/owner/rewards", icon: <RewardsIcon />, label: "Rewards" },
         { to: "/owner/offers", icon: <OffersIcon />, label: "Offers" },
         { to: "/owner/feedback", icon: <FeedbackDrawerIcon />, label: "Feedback" },
-        { to: "/owner/demo-orders", icon: <DemoOrdersDrawerIcon />, label: "Demo Orders" },
-        { to: "/owner/gallery", icon: <GalleryIcon />, label: "Canteen Gallery" },
-        { to: "/owner/bank-details", icon: <BankIcon />, label: "Bank Details" },
-        { to: "/owner/subscription", icon: <SubscriptionIcon />, label: "Subscription" },
     ];
     
     const DrawerNavLink: React.FC<{ to: string, icon: React.ReactNode, label: string }> = ({ to, icon, label }) => (

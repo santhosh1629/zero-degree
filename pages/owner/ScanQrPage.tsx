@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { verifyQrCodeAndCollectOrder } from '../../services/mockApi';
 import type { Order } from '../../types';
@@ -80,7 +79,7 @@ const ScanQrPage: React.FC = () => {
                 </div>
             ) : (
                 <>
-                    <div id="qr-reader-container" className="w-full max-w-sm mx-auto h-auto rounded-lg mb-4 border-2 border-dashed border-gray-600 overflow-hidden"></div>
+                    <div id="qr-reader-container" className="w-full max-w-sm mx-auto aspect-square rounded-lg mb-4 border-2 border-dashed border-gray-600 overflow-hidden"></div>
                     <p className="text-center text-gray-400">
                         Point your camera at the customer's QR code.
                     </p>

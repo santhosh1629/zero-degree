@@ -102,6 +102,7 @@ export const getOwnerStatus = async (): Promise<{ isOnline: boolean }> => {
 export const getMenu = async (studentId?: string): Promise<MenuItem[]> => {
     const { data: menuData, error: menuError } = await supabase.from('menu').select('*');
     if (menuError) throw menuError;
+    if (!menuData) return []; // Defensive check for null data
 
     const mappedMenu = menuData.map(mapDbMenuToAppMenu);
 
@@ -114,6 +115,11 @@ export const getMenu = async (studentId?: string): Promise<MenuItem[]> => {
 
     if (favoritesError) {
         console.error("Error fetching favorites:", favoritesError);
+        return mappedMenu;
+    }
+    
+    if (!favoritesData) {
+        // Handle case where data is null but no error, to prevent crash on .map
         return mappedMenu;
     }
 
@@ -270,30 +276,6 @@ export const submitFeedback = async (feedbackData: { studentId: string; itemId: 
     return mapDbFeedbackToAppFeedback(data);
 };
 
-// ... Demo functions ...
-export const getDemoMenu = async (): Promise<MenuItem[]> => {
-    return [
-        { id: 'demo-1', name: 'Demo Chicken Rice', price: 70, isAvailable: true, imageUrl: 'https://images.unsplash.com/photo-1626385342111-a1bbb73706c8?q=80&w=800&auto=format&fit=crop', emoji: '🍗', description: 'This is a sample item to demonstrate the ordering process. It has no real value.' },
-        { id: 'demo-2', name: 'Demo Juice', price: 30, isAvailable: true, imageUrl: 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?q=80&w=800&auto=format&fit=crop', emoji: '🧃', description: 'A refreshing demo juice to complete your sample order.' }
-    ];
-};
-
-export const placeDemoOrder = async (orderData: { studentId: string; studentName: string; items: any[]; totalAmount: number; }): Promise<Order> => {
-    const orderId = `demo-order-${Date.now()}`;
-    const qrToken = JSON.stringify({ orderId, isDemo: true });
-    return {
-        id: orderId,
-        studentId: orderData.studentId,
-        studentName: orderData.studentName,
-        items: orderData.items,
-        totalAmount: orderData.totalAmount,
-        status: OrderStatusEnum.COLLECTED,
-        qrToken: qrToken,
-        timestamp: new Date(),
-        orderType: 'demo',
-    };
-};
-
 // --- ADMIN / OWNER FUNCTIONS ---
 
 export const updateAllMenuItemsAvailability = async (ownerId: string, isAvailable: boolean): Promise<void> => {
@@ -352,15 +334,6 @@ export const getOwnerOrders = async (): Promise<Order[]> => {
     if (error) throw error;
     return data.map(mapDbOrderToAppOrder);
 };
-
-export const getOwnerDemoOrders = async (): Promise<Order[]> => {
-    // This can be used to simulate demo orders for owners to see.
-    return [
-        { id: 'demo-owner-1', studentId: 'demo-customer', studentName: 'Rohan Sharma', customerPhone: '9876543210', items: [{id: 'd1', name: 'Demo Biryani', quantity: 1, price: 100, imageUrl: ''}], totalAmount: 100, status: OrderStatusEnum.COLLECTED, qrToken: '{"isDemo":true}', timestamp: new Date(), orderType: 'demo' },
-        { id: 'demo-owner-2', studentId: 'demo-customer-2', studentName: 'Priya Mehta', customerPhone: '9876543211', items: [{id: 'd2', name: 'Demo Noodles', quantity: 2, price: 60, imageUrl: ''}], totalAmount: 120, status: OrderStatusEnum.COLLECTED, qrToken: '{"isDemo":true}', timestamp: new Date(Date.now() - 3600000), orderType: 'demo' },
-    ];
-};
-
 
 export const updateOrderStatus = async (orderId: string, status: OrderStatus): Promise<Order> => {
     const { data, error } = await supabase.from('orders').update({ status }).eq('id', orderId).select('*').single();
@@ -517,6 +490,31 @@ export const createOffer = async (offerData: Partial<Offer>): Promise<void> => {
 };
 export const updateOfferStatus = async (offerId: string, isActive: boolean): Promise<void> => {
     const { error } = await supabase.from('offers').update({ is_active: isActive }).eq('id', offerId);
+    if (error) throw error;
+};
+
+export const updateOffer = async (offerId: string, updatedData: Partial<Omit<Offer, 'id'>>): Promise<void> => {
+    const dbPayload: Record<string, any> = {};
+    if (updatedData.code !== undefined) dbPayload.code = updatedData.code;
+    if (updatedData.description !== undefined) dbPayload.description = updatedData.description;
+    if (updatedData.discountType !== undefined) dbPayload.discount_type = updatedData.discountType;
+    if (updatedData.discountValue !== undefined) dbPayload.discount_value = updatedData.discountValue;
+    if (updatedData.isActive !== undefined) dbPayload.is_active = updatedData.isActive;
+
+    const { error } = await supabase
+        .from('offers')
+        .update(dbPayload)
+        .eq('id', offerId);
+    
+    if (error) throw error;
+};
+
+export const deleteOffer = async (offerId: string): Promise<void> => {
+    const { error } = await supabase
+        .from('offers')
+        .delete()
+        .eq('id', offerId);
+    
     if (error) throw error;
 };
 

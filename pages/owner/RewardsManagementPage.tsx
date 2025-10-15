@@ -92,6 +92,19 @@ const RewardsManagementPage: React.FC = () => {
         fetchRewards().finally(() => setLoading(false));
     }, [fetchRewards]);
 
+    useEffect(() => {
+        if (isModalOpen) {
+            const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+            document.body.style.overflow = 'hidden';
+            document.body.style.paddingRight = `${scrollbarWidth}px`;
+            
+            return () => {
+                document.body.style.overflow = 'auto';
+                document.body.style.paddingRight = '0';
+            };
+        }
+    }, [isModalOpen]);
+
     const handleOpenModal = (reward: Reward | null = null) => {
         if (reward) {
             setEditingReward(reward);
@@ -181,8 +194,8 @@ const RewardsManagementPage: React.FC = () => {
             </div>
 
             {isModalOpen && (
-                 <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
-                    <div className="bg-gray-800 border border-gray-700 p-8 rounded-lg shadow-xl w-full max-w-lg animate-fade-in-down max-h-[90vh] overflow-y-auto scrollbar-thin">
+                 <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-start pt-16 p-4">
+                    <div className="bg-gray-800 border border-gray-700 p-8 rounded-lg shadow-xl w-full max-w-lg animate-fade-in-down max-h-[calc(100vh-8rem)] overflow-y-auto scrollbar-thin">
                         <h2 className="text-2xl font-bold mb-6 text-white">{editingReward ? 'Edit Reward' : 'Create New Reward'}</h2>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <input type="text" name="title" value={formData.title} onChange={handleInputChange} placeholder="Title (e.g., Free Drink)" required className="w-full input"/>

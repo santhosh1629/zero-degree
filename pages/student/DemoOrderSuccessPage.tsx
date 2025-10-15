@@ -1,9 +1,8 @@
 
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const DemoOrderCollectedPage: React.FC = () => {
+const DemoOrderSuccessPage: React.FC = () => {
     return (
         <div className="max-w-md mx-auto bg-black/50 backdrop-blur-lg border border-white/20 p-6 sm:p-8 rounded-2xl shadow-xl text-white text-center animate-scale-in">
             <div className="flex justify-center mb-4">
@@ -25,4 +24,4 @@ const DemoOrderCollectedPage: React.FC = () => {
     );
 };
 
-export default DemoOrderCollectedPage;
+export default DemoOrderSuccessPage;

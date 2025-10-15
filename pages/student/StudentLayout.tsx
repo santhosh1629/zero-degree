@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import DynamicBackground from '../../components/student/DynamicBackground';
@@ -109,12 +107,11 @@ const greetings = [
 ];
 
 const CustomerLayout: React.FC = () => {
-  const { user, logout, updateUser } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [isCartAnimating, setIsCartAnimating] = useState(false);
-  const [showDemoModal, setShowDemoModal] = useState(false);
   const [activeToast, setActiveToast] = useState<ToastInfo | null>(null);
   const location = useLocation();
 
@@ -122,12 +119,6 @@ const CustomerLayout: React.FC = () => {
   const [centerToast, setCenterToast] = useState<ToastInfo | null>(null);
 
   const greeting = useMemo(() => greetings[Math.floor(Math.random() * greetings.length)], []);
-
-  useEffect(() => {
-    if (user?.isFirstLogin) {
-      setShowDemoModal(true);
-    }
-  }, [user]);
 
   useEffect(() => {
     const handleItemAdded = () => {
@@ -154,18 +145,6 @@ const CustomerLayout: React.FC = () => {
         logout();
         navigate('/login-customer');
     }, 3000);
-  };
-  
-  const handleStartDemo = () => {
-    setShowDemoModal(false);
-    navigate('/customer/demo-menu');
-  };
-
-  const handleSkipDemo = async () => {
-    if (user) {
-        await updateUser({ isFirstLogin: false });
-        setShowDemoModal(false);
-    }
   };
 
   const primaryNavLinks = [
@@ -392,24 +371,6 @@ const CustomerLayout: React.FC = () => {
                 ))}
             </div>
         </nav>
-
-        {/* First time user demo modal */}
-        {showDemoModal && (
-            <div className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4">
-                <div className="bg-surface border border-surface-light rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center animate-pop-in">
-                    <h2 className="text-2xl font-bold font-heading text-primary mb-2">Welcome to Zero✦Degree!</h2>
-                    <p className="text-textSecondary mb-6">Want a quick tour to see how ordering works? It takes less than a minute!</p>
-                    <div className="flex flex-col gap-4">
-                        <button onClick={handleStartDemo} className="btn-3d w-full bg-primary border-primary-dark text-background font-black py-3 px-4 rounded-xl">
-                            Let's Go! (Start Demo)
-                        </button>
-                        <button onClick={handleSkipDemo} className="text-sm text-textSecondary/70 hover:underline">
-                            No thanks, I know what I'm doing
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )}
     </div>
   );
 };

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { MenuItem, CartItem } from '../../types';
@@ -352,24 +353,15 @@ const MenuPage: React.FC = () => {
 
     const handleAddToCart = useCallback((item: MenuItem) => {
         const cart = getCartFromStorage();
-        // Prevent mixing demo and real items
-        if (cart.length > 0 && cart[0].isDemo) {
-            if(window.confirm("You have demo items in your cart. Starting a real order will clear your demo cart. Continue?")) {
-                saveCartToStorage([]); // Clear cart
-            } else {
-                return;
-            }
-        }
-        
         const existingItem = cart.find(cartItem => cartItem.id === item.id);
         
         let newCart;
         if (existingItem) {
             newCart = cart.map(cartItem => 
-                cartItem.id === item.id ? { ...cartItem, quantity: cartItem.quantity + 1, isDemo: false } : cartItem
+                cartItem.id === item.id ? { ...cartItem, quantity: cartItem.quantity + 1 } : cartItem
             );
         } else {
-            newCart = [...cart, { ...item, quantity: 1, isDemo: false }];
+            newCart = [...cart, { ...item, quantity: 1 }];
         }
         saveCartToStorage(newCart);
 

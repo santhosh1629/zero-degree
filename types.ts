@@ -45,12 +45,13 @@ export interface MenuItem {
   };
   isCombo?: boolean;
   comboItems?: { id: string; name: string }[];
+  // Fix: Add isDemo property to support demo functionality in DemoMenuPage.tsx
+  isDemo?: boolean;
 }
 
 export interface CartItem extends MenuItem {
   quantity: number;
   notes?: string;
-  isDemo?: boolean;
 }
 
 export enum OrderStatus {
@@ -77,7 +78,7 @@ export interface Order {
   status: OrderStatus;
   qrToken: string;
   timestamp: Date;
-  orderType: 'demo' | 'real';
+  orderType: 'real';
   couponCode?: string;
   discountAmount?: number;
   rewardCoupon?: Offer;
