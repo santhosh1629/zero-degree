@@ -502,7 +502,55 @@ export const getFeedbacks = async (): Promise<Feedback[]> => {
     if (error) throw error;
     return data.map(mapDbFeedbackToAppFeedback);
 };
-export const getFoodPopularityStats = async (): Promise<MenuItem[]> => getMenu();
+
+export const getFoodPopularityStats = async (): Promise<MenuItem[]> => {
+    const [
+        { data: menuData, error: menuError },
+        { data: feedbacksData, error: feedbacksError },
+        { data: favoritesData, error: favoritesError }
+    ] = await Promise.all([
+        supabase.from('menu').select('*'),
+        supabase.from('feedbacks').select('item_id, rating'),
+        supabase.from('student_favorites').select('item_id')
+    ]);
+
+    if (menuError || feedbacksError || favoritesError) {
+        console.error("Error fetching popularity stats:", menuError || feedbacksError || favoritesError);
+        throw new Error("Could not fetch popularity statistics.");
+    }
+    
+    if (!menuData) return [];
+
+    const ratingsMap = new Map<string, { totalRating: number; count: number }>();
+    if (feedbacksData) {
+        for (const feedback of feedbacksData) {
+            const current = ratingsMap.get(feedback.item_id) || { totalRating: 0, count: 0 };
+            current.totalRating += feedback.rating;
+            current.count += 1;
+            ratingsMap.set(feedback.item_id, current);
+        }
+    }
+
+    const favoritesCountMap = new Map<string, number>();
+    if (favoritesData) {
+        for (const favorite of favoritesData) {
+            favoritesCountMap.set(favorite.item_id, (favoritesCountMap.get(favorite.item_id) || 0) + 1);
+        }
+    }
+
+    const stats: MenuItem[] = menuData.map(dbItem => {
+        const item = mapDbMenuToAppMenu(dbItem);
+        const ratingInfo = ratingsMap.get(item.id);
+        const favoriteCount = favoritesCountMap.get(item.id) || 0;
+
+        item.averageRating = ratingInfo ? ratingInfo.totalRating / ratingInfo.count : 0;
+        item.favoriteCount = favoriteCount;
+        
+        return item;
+    });
+
+    return stats;
+};
 
 export const getMostSellingItems = async (): Promise<{ name: string; count: number }[]> => {
     const { data, error } = await supabase.from('orders').select('items');
