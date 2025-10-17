@@ -28,7 +28,7 @@ const AddRewardCard: React.FC<{ onClick: () => void }> = ({ onClick }) => (
 );
 
 
-const RewardCard: React.FC<{ reward: Reward; onEdit: (reward: Reward) => void; onDelete: (rewardId: string) => void; onToggleStatus: (reward: Reward) => void; }> = ({ reward, onEdit, onDelete, onToggleStatus }) => (
+const RewardCard: React.FC<{ reward: Reward; onEdit: (reward: Reward) => void; onDelete: (reward: Reward) => void; onToggleStatus: (reward: Reward) => void; }> = ({ reward, onEdit, onDelete, onToggleStatus }) => (
     <div className={`bg-gray-800 rounded-2xl shadow-md border border-gray-700 overflow-hidden flex flex-col transition-all duration-300 ${!reward.isActive ? 'opacity-60' : ''}`}>
         <div className="p-5 flex-grow">
             <div className="flex justify-between items-start">
@@ -44,11 +44,13 @@ const RewardCard: React.FC<{ reward: Reward; onEdit: (reward: Reward) => void; o
                     {reward.discount.type === 'fixed' ? `₹${reward.discount.value}` : `${reward.discount.value}%`} OFF
                 </p>
             </div>
-             {reward.expiryDate && (
-                <p className="text-xs text-gray-500 mt-2">
-                    Expires on: {new Date(reward.expiryDate).toLocaleDateString()}
-                </p>
-            )}
+            <div className="mt-2 flex justify-between items-center">
+                {reward.expiryDate && (
+                    <p className="text-xs text-gray-500">
+                        Expires on: {new Date(reward.expiryDate).toLocaleDateString()}
+                    </p>
+                )}
+            </div>
         </div>
         <div className="bg-gray-700/50 p-2 flex justify-between items-center">
             <label className="flex items-center cursor-pointer px-2">
@@ -63,7 +65,7 @@ const RewardCard: React.FC<{ reward: Reward; onEdit: (reward: Reward) => void; o
             </label>
             <div className="flex gap-2">
                 <button onClick={() => onEdit(reward)} className="text-sm bg-gray-600 text-white font-semibold px-3 py-1.5 rounded-md hover:bg-gray-500 transition-colors">Edit</button>
-                <button onClick={() => onDelete(reward.id)} className="text-sm bg-red-800 text-white font-semibold px-3 py-1.5 rounded-md hover:bg-red-700 transition-colors">Delete</button>
+                <button onClick={() => onDelete(reward)} className="text-sm bg-red-800 text-white font-semibold px-3 py-1.5 rounded-md hover:bg-red-700 transition-colors">Delete</button>
             </div>
         </div>
     </div>
@@ -72,10 +74,15 @@ const RewardCard: React.FC<{ reward: Reward; onEdit: (reward: Reward) => void; o
 const RewardsManagementPage: React.FC = () => {
     const [rewards, setRewards] = useState<Reward[]>([]);
     const [loading, setLoading] = useState(true);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [editingReward, setEditingReward] = useState<Reward | null>(null);
     const [formData, setFormData] = useState<FormState>(initialFormState);
     const [error, setError] = useState('');
+
+    // State for deletion flow
+    const [modalState, setModalState] = useState<'closed' | 'confirm-delete' | 'delete-failed'>('closed');
+    const [targetReward, setTargetReward] = useState<Reward | null>(null);
+    const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
 
     const fetchRewards = useCallback(async () => {
         try {
@@ -93,7 +100,7 @@ const RewardsManagementPage: React.FC = () => {
     }, [fetchRewards]);
 
     useEffect(() => {
-        if (isModalOpen) {
+        if (isFormModalOpen || modalState !== 'closed') {
             const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
             document.body.style.overflow = 'hidden';
             document.body.style.paddingRight = `${scrollbarWidth}px`;
@@ -103,9 +110,9 @@ const RewardsManagementPage: React.FC = () => {
                 document.body.style.paddingRight = '0';
             };
         }
-    }, [isModalOpen]);
+    }, [isFormModalOpen, modalState]);
 
-    const handleOpenModal = (reward: Reward | null = null) => {
+    const handleOpenFormModal = (reward: Reward | null = null) => {
         if (reward) {
             setEditingReward(reward);
             setFormData({
@@ -120,11 +127,12 @@ const RewardsManagementPage: React.FC = () => {
             setEditingReward(null);
             setFormData(initialFormState);
         }
-        setIsModalOpen(true);
+        setError('');
+        setIsFormModalOpen(true);
     };
 
-    const handleCloseModal = () => {
-        setIsModalOpen(false);
+    const handleCloseFormModal = () => {
+        setIsFormModalOpen(false);
         setEditingReward(null);
         setError('');
     };
@@ -133,6 +141,8 @@ const RewardsManagementPage: React.FC = () => {
         const { name, value, type } = e.target;
         if (name === 'discountType' || name === 'discountValue') {
             setFormData(prev => ({ ...prev, discount: { ...prev.discount, [name === 'discountType' ? 'type' : 'value']: name === 'discountType' ? value : Number(value) } }));
+        } else if (name === 'pointsCost') {
+            setFormData(prev => ({ ...prev, [name]: value === '' ? 0 : parseInt(value, 10) }));
         } else {
             setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value }));
         }
@@ -153,16 +163,45 @@ const RewardsManagementPage: React.FC = () => {
                 await createReward(payload);
             }
             fetchRewards();
-            handleCloseModal();
+            handleCloseFormModal();
         } catch (err) {
             setError((err as Error).message);
         }
     };
 
-    const handleDelete = async (rewardId: string) => {
-        if (window.confirm("Are you sure you want to delete this reward?")) {
-            await deleteReward(rewardId);
+    const handleDeleteClick = (reward: Reward) => {
+        setTargetReward(reward);
+        setModalState('confirm-delete');
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!targetReward) return;
+        setIsSubmittingDelete(true);
+        try {
+            await deleteReward(targetReward.id);
+            setModalState('closed');
             fetchRewards();
+            window.dispatchEvent(new CustomEvent('show-owner-toast', { detail: { message: 'Reward deleted successfully.' } }));
+        } catch (err) {
+            console.error("Failed to delete reward:", err);
+            setModalState('delete-failed');
+        } finally {
+            setIsSubmittingDelete(false);
+        }
+    };
+
+    const handleDeactivate = async () => {
+        if (!targetReward) return;
+        setIsSubmittingDelete(true);
+        try {
+            await updateReward(targetReward.id, { isActive: false });
+            setModalState('closed');
+            fetchRewards();
+            window.dispatchEvent(new CustomEvent('show-owner-toast', { detail: { message: `Reward '${targetReward.title}' deactivated.` } }));
+        } catch (err) {
+            setError('Failed to deactivate reward.');
+        } finally {
+            setIsSubmittingDelete(false);
         }
     };
 
@@ -171,6 +210,10 @@ const RewardsManagementPage: React.FC = () => {
         fetchRewards();
     };
 
+    const closeDeleteModal = () => {
+        setModalState('closed');
+        setTargetReward(null);
+    };
 
     if(loading) return <p>Loading rewards...</p>;
 
@@ -181,32 +224,32 @@ const RewardsManagementPage: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                <AddRewardCard onClick={() => handleOpenModal()} />
+                <AddRewardCard onClick={() => handleOpenFormModal()} />
                 {rewards.map(reward => (
                     <RewardCard 
                         key={reward.id} 
                         reward={reward}
-                        onEdit={handleOpenModal}
-                        onDelete={handleDelete}
+                        onEdit={handleOpenFormModal}
+                        onDelete={handleDeleteClick}
                         onToggleStatus={handleToggleStatus}
                     />
                 ))}
             </div>
 
-            {isModalOpen && (
+            {isFormModalOpen && (
                  <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-start pt-16 p-4">
                     <div className="bg-gray-800 border border-gray-700 p-8 rounded-lg shadow-xl w-full max-w-lg animate-fade-in-down max-h-[calc(100vh-8rem)] overflow-y-auto scrollbar-thin">
                         <h2 className="text-2xl font-bold mb-6 text-white">{editingReward ? 'Edit Reward' : 'Create New Reward'}</h2>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <input type="text" name="title" value={formData.title} onChange={handleInputChange} placeholder="Title (e.g., Free Drink)" required className="w-full input"/>
                             <textarea name="description" value={formData.description} onChange={handleInputChange} placeholder="Description" className="w-full input" rows={2}/>
-                            <input type="number" name="pointsCost" value={formData.pointsCost === 0 ? '' : formData.pointsCost} onChange={handleInputChange} placeholder="Points Cost (e.g., 100)" required className="w-full input"/>
+                            <input type="number" name="pointsCost" value={formData.pointsCost === 0 ? '' : formData.pointsCost} onChange={handleInputChange} placeholder="Points Cost (e.g., 100)" required className="w-full input" min="0"/>
                             <div className="grid grid-cols-2 gap-4">
                                 <select name="discountType" value={formData.discount.type} onChange={handleInputChange} className="w-full input bg-gray-700">
                                     <option value="fixed">Fixed (₹)</option>
                                     <option value="percentage">Percentage (%)</option>
                                 </select>
-                                <input type="number" name="discountValue" value={formData.discount.value === 0 ? '' : formData.discount.value} onChange={handleInputChange} placeholder="Discount Value" required className="w-full input"/>
+                                <input type="number" name="discountValue" value={formData.discount.value === 0 ? '' : formData.discount.value} onChange={handleInputChange} placeholder="Discount Value" required className="w-full input" min="0"/>
                             </div>
                             <div>
                                 <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-300">Expiry Date (Optional)</label>
@@ -220,13 +263,47 @@ const RewardsManagementPage: React.FC = () => {
                             {error && <p className="text-red-400 text-sm">{error}</p>}
 
                             <div className="flex justify-end gap-4 pt-4">
-                                <button type="button" onClick={handleCloseModal} className="btn-secondary">Cancel</button>
+                                <button type="button" onClick={handleCloseFormModal} className="btn-secondary">Cancel</button>
                                 <button type="submit" className="btn-primary">{editingReward ? 'Save Changes' : 'Create Reward'}</button>
                             </div>
                         </form>
                     </div>
                  </div>
             )}
+            
+            {modalState !== 'closed' && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl max-w-sm w-full p-8 text-center animate-pop-in">
+                        {modalState === 'confirm-delete' && (
+                            <>
+                                <span className="text-5xl" role="img" aria-label="trash can">🗑️</span>
+                                <h2 className="text-2xl font-bold font-heading text-white mt-4">Confirm Deletion</h2>
+                                <p className="text-gray-300 my-4">Are you sure you want to permanently delete the reward <strong className="text-indigo-400">"{targetReward?.title}"</strong>? This action cannot be undone.</p>
+                                <div className="flex justify-center gap-4">
+                                    <button onClick={closeDeleteModal} disabled={isSubmittingDelete} className="btn-secondary px-6">Cancel</button>
+                                    <button onClick={handleConfirmDelete} disabled={isSubmittingDelete} className="bg-red-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700 disabled:bg-red-500/50">
+                                        {isSubmittingDelete ? 'Deleting...' : 'Delete'}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                        {modalState === 'delete-failed' && (
+                             <>
+                                <span className="text-5xl" role="img" aria-label="warning">⚠️</span>
+                                <h2 className="text-2xl font-bold font-heading text-white mt-4">Deletion Failed</h2>
+                                <p className="text-gray-300 my-4">This reward cannot be deleted because it may have been redeemed by a customer. To prevent it from being used again, you can <strong className="text-amber-400">deactivate</strong> it instead.</p>
+                                <div className="flex flex-col gap-3">
+                                    <button onClick={handleDeactivate} disabled={isSubmittingDelete} className="bg-amber-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-amber-700 disabled:bg-amber-500/50">
+                                        {isSubmittingDelete ? 'Deactivating...' : 'Deactivate Item'}
+                                    </button>
+                                    <button onClick={closeDeleteModal} disabled={isSubmittingDelete} className="btn-secondary px-6">Cancel</button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+
              <style>{`
                 .input {
                     padding: 0.75rem 1rem;

@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { getAllStudentCoupons } from '../../services/mockApi';
@@ -11,9 +9,12 @@ const CouponCard: React.FC<{ offer: Offer }> = ({ offer }) => {
     const navigate = useNavigate();
     const isReward = offer.isReward;
     const isUsed = offer.isUsed;
+    const remainingUses = (offer.usageCount || 1) - (offer.redeemedCount || 0);
+    const isMultiUse = (offer.usageCount || 1) > 1;
+
 
     const handleUseCoupon = () => {
-        navigate('/student/cart');
+        navigate('/customer/cart');
     };
 
     return (
@@ -52,12 +53,19 @@ const CouponCard: React.FC<{ offer: Offer }> = ({ offer }) => {
                         </p>
                     </div>
                 ) : (
-                    <button 
-                        onClick={handleUseCoupon}
-                        className="w-full bg-primary text-white font-bold font-heading py-2 px-4 rounded-lg hover:bg-primary-dark transition-colors"
-                    >
-                        Use in Cart
-                    </button>
+                    <div className="flex items-center justify-between gap-4">
+                        {isMultiUse && (
+                            <p className="text-xs font-semibold text-violet-300 bg-violet-500/20 px-2 py-1 rounded-full">
+                                {remainingUses} use(s) remaining
+                            </p>
+                        )}
+                        <button 
+                            onClick={handleUseCoupon}
+                            className="w-full bg-primary text-white font-bold font-heading py-2 px-4 rounded-lg hover:bg-primary-dark transition-colors"
+                        >
+                            Use in Cart
+                        </button>
+                    </div>
                 )}
                 </div>
             </div>

@@ -84,6 +84,8 @@ const mapDbOfferToAppOffer = (dbOffer: any): Offer => ({
     studentId: dbOffer.student_id,
     isReward: dbOffer.is_reward,
     isActive: dbOffer.is_active,
+    usageCount: dbOffer.usage_count,
+    redeemedCount: dbOffer.redeemed_count,
 });
 
 const mapDbRewardToAppReward = (dbReward: any): Reward => ({
@@ -182,16 +184,44 @@ export const toggleFavoriteItem = async (studentId: string, itemId: string): Pro
 };
 
 export const placeOrder = async (orderData: { studentId: string; studentName: string; items: any[]; totalAmount: number; couponCode?: string, discountAmount?: number }): Promise<Order> => {
+    let couponToUpdate: { id: string; redeemed_count: number | null; usage_count: number | null; } | null = null;
+    
+    // Step 1: Validate the coupon if provided, but don't update it yet.
+    if (orderData.couponCode) {
+        const { data: coupon, error: couponError } = await supabase
+            .from('offers')
+            .select('id, redeemed_count, usage_count')
+            .eq('code', orderData.couponCode)
+            .eq('is_active', true)
+            .eq('is_used', false)
+            .or(`student_id.eq.${orderData.studentId},student_id.is.null`)
+            .limit(1)
+            .maybeSingle();
+
+        if (couponError) {
+            console.error("Error fetching coupon:", couponError);
+            // This provides a more useful error to the user than just "[object Object]"
+            throw new Error(`Could not verify coupon. Database error: ${couponError.message}`);
+        }
+
+        if (!coupon) {
+            throw new Error(`Coupon "${orderData.couponCode}" is invalid, expired, or already used.`);
+        }
+        
+        // Store coupon details to update after the order is successfully created
+        couponToUpdate = coupon;
+    }
+
+    // Step 2: Create the order
     const { count, error: countError } = await supabase
         .from('orders')
         .select('*', { count: 'exact', head: true })
         .gte('timestamp', getStartOfToday());
 
     if (countError) throw countError;
-
     const orderNumber = (count || 0) + 1;
-
     const qrToken = JSON.stringify({ orderId: `temp-id-${Date.now()}`}); // Temp token
+
     const { data, error } = await supabase.from('orders').insert([
         { 
             student_id: orderData.studentId,
@@ -207,16 +237,48 @@ export const placeOrder = async (orderData: { studentId: string; studentName: st
         }
     ]).select().single();
 
-    if (error) throw error;
+    if (error) {
+        // If order creation fails, we haven't touched the coupon yet, which is good.
+        throw error;
+    }
     
-    // Update QR token with real order ID
+    // Step 3: If order creation was successful, NOW update the coupon.
+    if (couponToUpdate) {
+        const newRedeemedCount = (couponToUpdate.redeemed_count || 0) + 1;
+        const usageCount = couponToUpdate.usage_count || 1;
+        const isNowUsed = newRedeemedCount >= usageCount;
+
+        const { error: updateCouponError } = await supabase
+            .from('offers')
+            .update({
+                redeemed_count: newRedeemedCount,
+                is_used: isNowUsed,
+                is_active: !isNowUsed
+            })
+            .eq('id', couponToUpdate.id);
+        
+        if (updateCouponError) {
+            // This is a state where the order is placed but coupon update failed.
+            // In a real production app, this would be handled by a transaction or a retry queue.
+            // For now, we log a critical error. The user's order is still valid.
+            console.error("CRITICAL: Order placed, but failed to update coupon usage count:", updateCouponError);
+        }
+    }
+    
+    // Step 4: Finalize order details (update QR token with real ID)
     const finalQrToken = JSON.stringify({ orderId: data.id });
-    const { data: updatedData, error: updateError } = await supabase.from('orders').update({ qr_token: finalQrToken }).eq('id', data.id).select('*').single();
+    const { data: updatedData, error: updateError } = await supabase
+        .from('orders')
+        .update({ qr_token: finalQrToken })
+        .eq('id', data.id)
+        .select('*')
+        .single();
 
     if (updateError) throw updateError;
-    
+
     return mapDbOrderToAppOrder(updatedData);
 };
+
 
 export const cancelStudentOrder = async (orderId: string, studentId: string): Promise<Order> => {
     const { data: order, error: fetchError } = await supabase.from('orders').select('total_amount').eq('id', orderId).single();
@@ -614,6 +676,8 @@ export const createOffer = async (offerData: Partial<Offer>): Promise<void> => {
         discount_type: offerData.discountType,
         discount_value: offerData.discountValue,
         is_active: offerData.isActive,
+        usage_count: offerData.usageCount || 1,
+        redeemed_count: 0,
     };
     const { error } = await supabase.from('offers').insert(dbPayload);
     if (error) throw error;
@@ -630,6 +694,7 @@ export const updateOffer = async (offerId: string, updatedData: Partial<Omit<Off
     if (updatedData.discountType !== undefined) dbPayload.discount_type = updatedData.discountType;
     if (updatedData.discountValue !== undefined) dbPayload.discount_value = updatedData.discountValue;
     if (updatedData.isActive !== undefined) dbPayload.is_active = updatedData.isActive;
+    if (updatedData.usageCount !== undefined) dbPayload.usage_count = updatedData.usageCount;
 
     const { error } = await supabase
         .from('offers')
@@ -649,7 +714,12 @@ export const deleteOffer = async (offerId: string): Promise<void> => {
 };
 
 export const getOffers = async (studentId: string): Promise<Offer[]> => {
-    const { data, error } = await supabase.from('offers').select('*').eq('student_id', studentId);
+    const { data, error } = await supabase
+        .from('offers')
+        .select('*')
+        .or(`student_id.eq.${studentId},student_id.is.null`)
+        .eq('is_used', false)
+        .eq('is_active', true);
     if (error) throw error;
     return data.map(mapDbOfferToAppOffer);
 };
@@ -751,6 +821,7 @@ export const redeemReward = async (studentId: string, rewardId: string): Promise
         student_id: studentId,
         is_reward: true,
         is_active: true,
+        redeemed_count: 0,
     }).select().single();
 
     // Fix: Complete the function to handle error and return a value

@@ -118,6 +118,8 @@ export interface Offer {
     studentId: string; // Every coupon belongs to a customer
     isReward?: boolean;
     isActive?: boolean;
+    usageCount?: number; // How many times it can be used in total
+    redeemedCount?: number; // How many times it has been used
 }
 
 export interface StudentProfile {

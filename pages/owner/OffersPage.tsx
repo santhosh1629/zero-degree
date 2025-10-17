@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { getAllOffersForOwner, createOffer, updateOffer, deleteOffer } from '../../services/mockApi';
 import type { Offer } from '../../types';
 
-type FormState = Omit<Offer, 'id' | 'isUsed' | 'studentId' | 'isReward'>;
+type FormState = Omit<Offer, 'id' | 'isUsed' | 'studentId' | 'isReward' | 'redeemedCount'>;
 
-const initialFormState: FormState = { code: '', description: '', discountType: 'fixed', discountValue: 0, isActive: true };
+const initialFormState: FormState = { code: '', description: '', discountType: 'fixed', discountValue: 0, isActive: true, usageCount: 1 };
 
 const AddOfferCard: React.FC<{ onClick: () => void }> = ({ onClick }) => (
     <div className="flex items-center justify-center">
@@ -20,7 +20,7 @@ const AddOfferCard: React.FC<{ onClick: () => void }> = ({ onClick }) => (
     </div>
 );
 
-const OfferCard: React.FC<{ offer: Offer; onEdit: (offer: Offer) => void; onDelete: (offerId: string) => void; onToggleStatus: (offer: Offer) => void; }> = ({ offer, onEdit, onDelete, onToggleStatus }) => (
+const OfferCard: React.FC<{ offer: Offer; onEdit: (offer: Offer) => void; onDelete: (offer: Offer) => void; onToggleStatus: (offer: Offer) => void; }> = ({ offer, onEdit, onDelete, onToggleStatus }) => (
     <div className={`bg-gray-800 rounded-2xl shadow-md border border-gray-700 overflow-hidden flex flex-col transition-all duration-300 ${!offer.isActive ? 'opacity-60' : ''}`}>
         <div className="p-5 flex-grow">
              <div className="flex justify-between items-start">
@@ -33,6 +33,9 @@ const OfferCard: React.FC<{ offer: Offer; onEdit: (offer: Offer) => void; onDele
              <div className="mt-4 flex justify-between items-center">
                 <p className="font-bold text-amber-400 text-2xl">
                     {offer.discountType === 'fixed' ? `₹${offer.discountValue}` : `${offer.discountValue}%`} <span className="text-base">OFF</span>
+                </p>
+                <p className="text-xs font-semibold text-gray-400 bg-gray-700 px-2 py-1 rounded-full">
+                    {offer.usageCount === 1 ? 'Single Use' : `Multi-use (${offer.usageCount})`}
                 </p>
             </div>
         </div>
@@ -49,7 +52,7 @@ const OfferCard: React.FC<{ offer: Offer; onEdit: (offer: Offer) => void; onDele
             </label>
             <div className="flex gap-2">
                 <button onClick={() => onEdit(offer)} className="text-sm bg-gray-600 text-white font-semibold px-3 py-1.5 rounded-md hover:bg-gray-500 transition-colors">Edit</button>
-                <button onClick={() => onDelete(offer.id)} className="text-sm bg-red-800 text-white font-semibold px-3 py-1.5 rounded-md hover:bg-red-700 transition-colors">Delete</button>
+                <button onClick={() => onDelete(offer)} className="text-sm bg-red-800 text-white font-semibold px-3 py-1.5 rounded-md hover:bg-red-700 transition-colors">Delete</button>
             </div>
         </div>
     </div>
@@ -59,10 +62,15 @@ const OfferCard: React.FC<{ offer: Offer; onEdit: (offer: Offer) => void; onDele
 const OffersPage: React.FC = () => {
     const [offers, setOffers] = useState<Offer[]>([]);
     const [loading, setLoading] = useState(true);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [editingOffer, setEditingOffer] = useState<Offer | null>(null);
     const [formData, setFormData] = useState<FormState>(initialFormState);
     const [error, setError] = useState('');
+
+    // State for deletion flow
+    const [modalState, setModalState] = useState<'closed' | 'confirm-delete' | 'delete-failed'>('closed');
+    const [targetOffer, setTargetOffer] = useState<Offer | null>(null);
+    const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
 
     const fetchOffers = useCallback(async () => {
         try {
@@ -80,7 +88,7 @@ const OffersPage: React.FC = () => {
     }, [fetchOffers]);
 
     useEffect(() => {
-        if (isModalOpen) {
+        if (isFormModalOpen || modalState !== 'closed') {
             const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
             document.body.style.overflow = 'hidden';
             document.body.style.paddingRight = `${scrollbarWidth}px`;
@@ -90,9 +98,9 @@ const OffersPage: React.FC = () => {
                 document.body.style.paddingRight = '0';
             };
         }
-    }, [isModalOpen]);
+    }, [isFormModalOpen, modalState]);
 
-    const handleOpenModal = (offer: Offer | null = null) => {
+    const handleOpenFormModal = (offer: Offer | null = null) => {
         if (offer) {
             setEditingOffer(offer);
             setFormData({
@@ -101,16 +109,17 @@ const OffersPage: React.FC = () => {
                 discountType: offer.discountType,
                 discountValue: offer.discountValue,
                 isActive: offer.isActive ?? true,
+                usageCount: offer.usageCount || 1,
             });
         } else {
             setEditingOffer(null);
             setFormData(initialFormState);
         }
-        setIsModalOpen(true);
+        setIsFormModalOpen(true);
     };
 
-    const handleCloseModal = () => {
-        setIsModalOpen(false);
+    const handleCloseFormModal = () => {
+        setIsFormModalOpen(false);
         setEditingOffer(null);
         setError('');
     };
@@ -119,13 +128,14 @@ const OffersPage: React.FC = () => {
         const { name, value, type } = e.target;
         const isCheckbox = type === 'checkbox';
         const checked = (e.target as HTMLInputElement).checked;
+        const isNumber = ['discountValue', 'usageCount'].includes(name);
 
         setFormData(prev => ({
             ...prev,
             [name]: isCheckbox
                 ? checked
-                : (name === 'discountValue')
-                    ? Number(value)
+                : isNumber
+                    ? (value === '' ? 0 : parseInt(value, 10))
                     : (name === 'code')
                         ? value.toUpperCase()
                         : value
@@ -135,11 +145,11 @@ const OffersPage: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        if (!formData.code || !formData.description || formData.discountValue <= 0) {
-            setError("Coupon code, description, and a positive discount value are required.");
+        if (!formData.code || !formData.description || formData.discountValue <= 0 || (formData.usageCount || 0) < 1) {
+            setError("All fields are required. Discount and Usage Count must be positive.");
             return;
         }
-        const payload = { ...formData, discountValue: Number(formData.discountValue) };
+        const payload = { ...formData, discountValue: Number(formData.discountValue), usageCount: Number(formData.usageCount) };
         try {
             if (editingOffer) {
                 await updateOffer(editingOffer.id, payload);
@@ -147,16 +157,45 @@ const OffersPage: React.FC = () => {
                 await createOffer(payload);
             }
             fetchOffers();
-            handleCloseModal();
+            handleCloseFormModal();
         } catch (err) {
             setError((err as Error).message);
         }
     };
 
-    const handleDelete = async (offerId: string) => {
-        if (window.confirm("Are you sure you want to delete this offer?")) {
-            await deleteOffer(offerId);
+    const handleDeleteClick = (offer: Offer) => {
+        setTargetOffer(offer);
+        setModalState('confirm-delete');
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!targetOffer) return;
+        setIsSubmittingDelete(true);
+        try {
+            await deleteOffer(targetOffer.id);
+            setModalState('closed');
             fetchOffers();
+            window.dispatchEvent(new CustomEvent('show-owner-toast', { detail: { message: 'Offer deleted successfully.' } }));
+        } catch (err) {
+            console.error("Failed to delete offer:", err);
+            setModalState('delete-failed');
+        } finally {
+            setIsSubmittingDelete(false);
+        }
+    };
+
+    const handleDeactivate = async () => {
+        if (!targetOffer) return;
+        setIsSubmittingDelete(true);
+        try {
+            await updateOffer(targetOffer.id, { isActive: false });
+            setModalState('closed');
+            fetchOffers();
+            window.dispatchEvent(new CustomEvent('show-owner-toast', { detail: { message: `Offer '${targetOffer.code}' deactivated.` } }));
+        } catch (err) {
+            setError('Failed to deactivate offer.');
+        } finally {
+            setIsSubmittingDelete(false);
         }
     };
 
@@ -167,24 +206,29 @@ const OffersPage: React.FC = () => {
     
     if(loading) return <p className="text-gray-300">Loading offers...</p>
 
+    const closeDeleteModal = () => {
+        setModalState('closed');
+        setTargetOffer(null);
+    };
+
     return (
         <div>
             <h1 className="text-4xl font-bold text-gray-200 mb-6">Manage Offers 🎟️</h1>
-
+            
              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                <AddOfferCard onClick={() => handleOpenModal()} />
+                <AddOfferCard onClick={() => handleOpenFormModal()} />
                 {offers.map(offer => (
                     <OfferCard 
                         key={offer.id} 
                         offer={offer}
-                        onEdit={handleOpenModal}
-                        onDelete={handleDelete}
+                        onEdit={handleOpenFormModal}
+                        onDelete={handleDeleteClick}
                         onToggleStatus={handleToggleStatus}
                     />
                 ))}
             </div>
-            
-            {isModalOpen && (
+
+            {isFormModalOpen && (
                  <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-start pt-16 p-4">
                     <div className="bg-gray-800 border border-gray-700 p-8 rounded-lg shadow-xl w-full max-w-lg animate-fade-in-down max-h-[calc(100vh-8rem)] overflow-y-auto scrollbar-thin">
                         <h2 className="text-2xl font-bold mb-6 text-white">{editingOffer ? 'Edit Offer' : 'Create New Offer'}</h2>
@@ -198,18 +242,55 @@ const OffersPage: React.FC = () => {
                                 </select>
                                 <input type="number" name="discountValue" value={formData.discountValue === 0 ? '' : formData.discountValue} onChange={handleInputChange} placeholder="Discount Value" required className="w-full input" min="0" />
                             </div>
+                            <div>
+                                <label htmlFor="usageCount" className="block text-sm font-medium text-gray-300">Usage Count</label>
+                                <input type="number" id="usageCount" name="usageCount" value={formData.usageCount === 0 ? '' : formData.usageCount} onChange={handleInputChange} placeholder="e.g., 1" required className="w-full input mt-1" min="1" />
+                            </div>
                              <label className="flex items-center text-gray-200">
                                 <input type="checkbox" name="isActive" checked={formData.isActive} onChange={handleInputChange} className="form-checkbox h-5 w-5 bg-gray-700 border-gray-600 text-indigo-500 focus:ring-indigo-500"/>
                                 <span className="ml-2">Is Active</span>
                             </label>
                             {error && <p className="text-red-400 text-sm">{error}</p>}
                             <div className="flex justify-end gap-4 pt-4">
-                                <button type="button" onClick={handleCloseModal} className="btn-secondary">Cancel</button>
+                                <button type="button" onClick={handleCloseFormModal} className="btn-secondary">Cancel</button>
                                 <button type="submit" className="btn-primary">{editingOffer ? 'Save Changes' : 'Create Offer'}</button>
                             </div>
                         </form>
                     </div>
                  </div>
+            )}
+
+            {modalState !== 'closed' && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl max-w-sm w-full p-8 text-center animate-pop-in">
+                        {modalState === 'confirm-delete' && (
+                            <>
+                                <span className="text-5xl" role="img" aria-label="trash can">🗑️</span>
+                                <h2 className="text-2xl font-bold font-heading text-white mt-4">Confirm Deletion</h2>
+                                <p className="text-gray-300 my-4">Are you sure you want to permanently delete the offer <strong className="font-mono text-indigo-400">{targetOffer?.code}</strong>? This action cannot be undone.</p>
+                                <div className="flex justify-center gap-4">
+                                    <button onClick={closeDeleteModal} disabled={isSubmittingDelete} className="btn-secondary px-6">Cancel</button>
+                                    <button onClick={handleConfirmDelete} disabled={isSubmittingDelete} className="bg-red-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700 disabled:bg-red-500/50">
+                                        {isSubmittingDelete ? 'Deleting...' : 'Delete'}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                        {modalState === 'delete-failed' && (
+                             <>
+                                <span className="text-5xl" role="img" aria-label="warning">⚠️</span>
+                                <h2 className="text-2xl font-bold font-heading text-white mt-4">Deletion Failed</h2>
+                                <p className="text-gray-300 my-4">This offer cannot be deleted because it is linked to past orders. To prevent it from being used again, you can <strong className="text-amber-400">deactivate</strong> it instead.</p>
+                                <div className="flex flex-col gap-3">
+                                    <button onClick={handleDeactivate} disabled={isSubmittingDelete} className="bg-amber-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-amber-700 disabled:bg-amber-500/50">
+                                        {isSubmittingDelete ? 'Deactivating...' : 'Deactivate Item'}
+                                    </button>
+                                    <button onClick={closeDeleteModal} disabled={isSubmittingDelete} className="btn-secondary px-6">Cancel</button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
             )}
             
              <style>{`
