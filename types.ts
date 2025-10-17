@@ -1,4 +1,5 @@
 
+
 export enum Role {
   STUDENT = 'STUDENT',
   CANTEEN_OWNER = 'CANTEEN_OWNER',
@@ -63,6 +64,7 @@ export enum OrderStatus {
 
 export interface Order {
   id: string;
+  orderNumber?: number;
   studentId: string;
   studentName: string;
   customerPhone?: string;
@@ -87,6 +89,7 @@ export interface Order {
   pointsSpent?: number;
   refundAmount?: number;
   collectedByStaffId?: string;
+  seatNumber?: string;
 }
 
 export interface SalesSummary {

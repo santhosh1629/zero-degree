@@ -3,7 +3,7 @@ import { useParams, useLocation } from 'react-router-dom';
 import { QRCodeSVG as QRCode } from 'qrcode.react';
 import type { Order } from '../../types';
 import { OrderStatus } from '../../types';
-import { getOrderById } from '../../services/mockApi';
+import { getOrderById, updateOrderSeatNumber } from '../../services/mockApi';
 import { supabase } from '../../services/supabase';
 
 const OrderSuccessPage: React.FC = () => {
@@ -28,6 +28,10 @@ const OrderSuccessPage: React.FC = () => {
           const orderData = await getOrderById(orderId);
           setOrder(orderData);
           setCurrentStatus(orderData.status);
+          if (orderData.seatNumber) {
+            setSeatNumber(orderData.seatNumber);
+            setSeatSubmitted(true);
+          }
         } catch (error) {
           console.error("Failed to fetch order details", error);
         } finally {
@@ -54,12 +58,16 @@ const OrderSuccessPage: React.FC = () => {
 
   }, [orderId]);
 
-  const handleSeatSubmit = (e: React.FormEvent) => {
+  const handleSeatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (seatNumber.trim()) {
-      // In a real app, you would send this to the backend.
-      console.log(`Seat number ${seatNumber} submitted for order ${orderId}`);
-      setSeatSubmitted(true);
+    if (seatNumber.trim() && orderId) {
+      try {
+        await updateOrderSeatNumber(orderId, seatNumber.trim());
+        setSeatSubmitted(true);
+      } catch(error) {
+        console.error("Failed to submit seat number", error);
+        alert("Could not submit seat number. Please try again.");
+      }
     }
   };
 
@@ -109,7 +117,7 @@ const OrderSuccessPage: React.FC = () => {
           {isCollected ? "Order Collected!" : "Payment Successful!"}
         </h1>
         <p className="text-textSecondary mt-2 animate-slide-in-up opacity-0" style={{ animationDelay: '200ms' }}>
-          Thank you! Your order <span className="font-bold">#{order.id.slice(-6)}</span> {isCollected ? 'has been collected.' : 'is being prepared.'}
+          Thank you! Your order <span className="font-bold">{order.orderNumber ? `Order Num ${order.orderNumber}`: `#${order.id.slice(-6)}`}</span> {isCollected ? 'has been collected.' : 'is being prepared.'}
         </p>
       </div>
 
@@ -142,11 +150,10 @@ const OrderSuccessPage: React.FC = () => {
                 <label htmlFor="seatNumber" className="text-textSecondary text-center">Please enter your seat number below:</label>
                 <input
                     id="seatNumber"
-                    type="number"
-                    inputMode="numeric"
+                    type="text"
                     value={seatNumber}
                     onChange={(e) => setSeatNumber(e.target.value)}
-                    placeholder="e.g., 12"
+                    placeholder="e.g., A12 or 5"
                     className="w-48 text-center text-2xl font-bold p-3 bg-black/30 border-2 border-white/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                     required
                 />

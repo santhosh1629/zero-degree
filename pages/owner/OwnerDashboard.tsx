@@ -178,10 +178,15 @@ const OrdersManager: React.FC<{orders: Order[], onStatusUpdate: () => void, onVi
                         <tbody className="bg-gray-800 divide-y divide-gray-700">
                             {displayedOrders.map(order => (
                                 <tr key={order.id}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">...{order.id.slice(-6)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{order.orderNumber ? `Order Num ${order.orderNumber}`: `...${order.id.slice(-6)}`}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm align-top">
                                         <div className="font-medium text-gray-200">{order.studentName}</div>
                                         {order.customerPhone && <div className="text-gray-400">{order.customerPhone}</div>}
+                                        {order.seatNumber && (
+                                            <div className="mt-1 font-bold text-lg text-amber-400 bg-amber-500/10 px-2 py-1 rounded-md inline-block">
+                                                🪑 Seat: {order.seatNumber}
+                                            </div>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-normal text-sm text-gray-400 align-top">
                                         <ul className="list-disc list-inside space-y-1">
@@ -408,25 +413,26 @@ const OwnerDashboard: React.FC = () => {
             today.setHours(0, 0, 0, 0);
 
             const todaysCollectedOrders = orders.filter(
-                o => o.status === OrderStatus.COLLECTED && new Date(o.timestamp) >= today
+                o => o.status === OrderStatus.COLLECTED && new Date(o.timestamp) >= today && o.collectedByStaffId
             );
-
+    
             const scanCounts = new Map<string, number>();
             todaysCollectedOrders.forEach(order => {
-                if (order.collectedByStaffId) {
-                    scanCounts.set(order.collectedByStaffId, (scanCounts.get(order.collectedByStaffId) || 0) + 1);
-                }
+                scanCounts.set(order.collectedByStaffId!, (scanCounts.get(order.collectedByStaffId!) || 0) + 1);
             });
-
-            const allStaffAndOwner = [...staffAccounts];
-            if (!allStaffAndOwner.find(s => s.id === user.id)) {
+    
+            const allStaffAndOwner: User[] = [...staffAccounts];
+            // Ensure owner is in the list for tracking their own scans
+            if (user && !allStaffAndOwner.some(s => s.id === user.id)) {
                 allStaffAndOwner.push(user);
             }
 
             const leaderboardData = allStaffAndOwner.map(staff => ({
                 name: staff.username,
                 count: scanCounts.get(staff.id) || 0,
-            })).sort((a, b) => b.count - a.count);
+            }))
+            .filter(item => item.count > 0) // Only show staff with scans
+            .sort((a, b) => b.count - a.count);
 
             setStaffScanCounts(leaderboardData);
         }
@@ -630,11 +636,17 @@ const OrderDetailsPopup: React.FC<{ order: Order; onClose: () => void; onStatusU
                 </button>
                 <div className="p-5 border-b border-gray-700">
                     <h2 className="text-xl font-bold text-white">Order Details</h2>
-                    <p className="text-sm text-gray-400">ID: #{order.id.slice(-6)}</p>
+                    <p className="text-sm text-gray-400">ID: {order.orderNumber ? `Order Num ${order.orderNumber}`: `#${order.id.slice(-6)}`}</p>
                 </div>
                 <div className="p-5 flex-grow overflow-y-auto scrollbar-thin">
                     <div className="space-y-4 text-sm">
                         <div><span className="font-semibold text-gray-400 w-28 inline-block">Customer:</span> <span className="text-white">{order.studentName}</span></div>
+                        {order.seatNumber && (
+                            <div className="bg-amber-500/10 p-3 rounded-lg border border-amber-500/30">
+                                <span className="font-semibold text-amber-300 w-28 inline-block">Dine-in Seat:</span> 
+                                <span className="font-bold text-2xl text-amber-300">{order.seatNumber}</span>
+                            </div>
+                        )}
                         <div><span className="font-semibold text-gray-400 w-28 inline-block">Order Time:</span> <span className="text-white">{new Date(order.timestamp).toLocaleString()}</span></div>
                         <div><span className="font-semibold text-gray-400 w-28 inline-block">Payment Status:</span> <span className="text-green-400 font-semibold">Paid</span></div>
                         <div>

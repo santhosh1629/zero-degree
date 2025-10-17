@@ -15,7 +15,7 @@ const DemoOrderCard: React.FC<{ order: Order }> = ({ order }) => {
                     <div className="flex justify-between items-start">
                         <div>
                             <p className="font-bold text-lg text-gray-200">
-                                DEMO-{order.id.slice(-6).toUpperCase()}
+                                {order.orderNumber ? `DEMO Order Num ${order.orderNumber}`: `DEMO-${order.id.slice(-6).toUpperCase()}`}
                             </p>
                             <p className="text-sm text-gray-400">
                                 {/* Fix: Changed customerName to studentName to match the Order type. */}

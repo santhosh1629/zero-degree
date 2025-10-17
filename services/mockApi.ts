@@ -8,22 +8,31 @@ import { Role as RoleEnum, OrderStatus as OrderStatusEnum } from '../types';
 
 // --- DATA MAPPERS (snake_case from DB to camelCase in App) ---
 
-export const mapDbOrderToAppOrder = (dbOrder: any): Order => ({
-    id: dbOrder.id,
-    studentId: dbOrder.student_id,
-    studentName: dbOrder.users?.username || dbOrder.student_name || 'N/A',
-    customerPhone: dbOrder.users?.phone || dbOrder.student_phone,
-    items: dbOrder.items,
-    totalAmount: dbOrder.total_amount,
-    status: dbOrder.status,
-    qrToken: dbOrder.qr_token,
-    timestamp: new Date(dbOrder.timestamp),
-    orderType: dbOrder.order_type,
-    couponCode: dbOrder.coupon_code,
-    discountAmount: dbOrder.discount_amount,
-    refundAmount: dbOrder.refund_amount,
-    collectedByStaffId: dbOrder.collected_by_staff_id,
-});
+export const mapDbOrderToAppOrder = (dbOrder: any): Order => {
+    const studentNameFromDb = dbOrder.student_name || dbOrder.users?.username || 'N/A';
+    const seatNumberMatch = studentNameFromDb.match(/\(Seat: (.*?)\)/);
+    const seatNumber = seatNumberMatch ? seatNumberMatch[1] : undefined;
+    const studentName = studentNameFromDb.split(' (Seat:')[0];
+
+    return {
+        id: dbOrder.id,
+        orderNumber: dbOrder.order_number,
+        studentId: dbOrder.student_id,
+        studentName: studentName,
+        customerPhone: dbOrder.users?.phone || dbOrder.student_phone,
+        items: dbOrder.items,
+        totalAmount: dbOrder.total_amount,
+        status: dbOrder.status,
+        qrToken: dbOrder.qr_token,
+        timestamp: new Date(dbOrder.timestamp),
+        orderType: dbOrder.order_type,
+        couponCode: dbOrder.coupon_code,
+        discountAmount: dbOrder.discount_amount,
+        refundAmount: dbOrder.refund_amount,
+        collectedByStaffId: dbOrder.collected_by_staff_id,
+        seatNumber: seatNumber,
+    };
+};
 
 const mapDbUserToAppUser = (dbUser: any): User => ({
     id: dbUser.id,
@@ -173,6 +182,15 @@ export const toggleFavoriteItem = async (studentId: string, itemId: string): Pro
 };
 
 export const placeOrder = async (orderData: { studentId: string; studentName: string; items: any[]; totalAmount: number; couponCode?: string, discountAmount?: number }): Promise<Order> => {
+    const { count, error: countError } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .gte('timestamp', getStartOfToday());
+
+    if (countError) throw countError;
+
+    const orderNumber = (count || 0) + 1;
+
     const qrToken = JSON.stringify({ orderId: `temp-id-${Date.now()}`}); // Temp token
     const { data, error } = await supabase.from('orders').insert([
         { 
@@ -185,6 +203,7 @@ export const placeOrder = async (orderData: { studentId: string; studentName: st
             status: OrderStatusEnum.PENDING,
             order_type: 'real',
             qr_token: qrToken,
+            order_number: orderNumber,
         }
     ]).select().single();
 
@@ -236,7 +255,7 @@ export const verifyQrCodeAndCollectOrder = async (qrToken: string, staffId: stri
     
     const { data: updatedOrder, error: updateError } = await supabase
         .from('orders')
-        .update({ status: OrderStatusEnum.COLLECTED })
+        .update({ status: OrderStatusEnum.COLLECTED, collected_by_staff_id: staffId })
         .eq('id', orderId)
         .select('*')
         .single();
@@ -250,6 +269,29 @@ export const getOrderById = async(orderId: string): Promise<Order> => {
     if (error) throw error;
     return mapDbOrderToAppOrder(data);
 }
+
+export const updateOrderSeatNumber = async (orderId: string, seatNumber: string): Promise<Order> => {
+    // 1. Fetch current student_name
+    const { data: currentOrder, error: fetchError } = await supabase
+        .from('orders')
+        .select('student_name')
+        .eq('id', orderId)
+        .single();
+    if (fetchError || !currentOrder) throw new Error("Order not found");
+
+    const baseName = currentOrder.student_name.split(' (Seat:')[0]; // Remove old seat number if present
+    const newStudentName = `${baseName} (Seat: ${seatNumber})`;
+
+    const { data, error } = await supabase
+        .from('orders')
+        .update({ student_name: newStudentName })
+        .eq('id', orderId)
+        .select('*, users(username, phone)')
+        .single();
+
+    if (error) throw error;
+    return mapDbOrderToAppOrder(data);
+};
 
 export const getStudentOrders = async (studentId: string): Promise<Order[]> => {
     const { data, error } = await supabase.from('orders').select('*').eq('student_id', studentId).order('timestamp', { ascending: false });
@@ -277,6 +319,46 @@ export const submitFeedback = async (feedbackData: { studentId: string; itemId: 
 };
 
 // --- ADMIN / OWNER FUNCTIONS ---
+
+// Fix: Add getAdminDashboardStats function
+export const getAdminDashboardStats = async (): Promise<AdminStats> => {
+    const { count: totalUsers, error: usersError } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true });
+
+    const { count: totalCustomers, error: customersError } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', RoleEnum.STUDENT);
+    
+    const { count: totalOwners, error: ownersError } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', RoleEnum.CANTEEN_OWNER);
+        
+    const { count: pendingApprovals, error: pendingError } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', RoleEnum.CANTEEN_OWNER)
+        .eq('approval_status', 'pending');
+
+    const { count: totalFeedbacks, error: feedbacksError } = await supabase
+        .from('feedbacks')
+        .select('*', { count: 'exact', head: true });
+
+    if (usersError || customersError || ownersError || pendingError || feedbacksError) {
+        console.error('Error fetching admin stats:', usersError || customersError || ownersError || pendingError || feedbacksError);
+        throw new Error('Could not fetch admin dashboard stats.');
+    }
+
+    return {
+        totalUsers: totalUsers ?? 0,
+        totalCustomers: totalCustomers ?? 0,
+        totalOwners: totalOwners ?? 0,
+        pendingApprovals: pendingApprovals ?? 0,
+        totalFeedbacks: totalFeedbacks ?? 0,
+    };
+};
 
 export const updateAllMenuItemsAvailability = async (ownerId: string, isAvailable: boolean): Promise<void> => {
     // The ownerId is unused as the schema does not link menu items to specific owners.
@@ -623,26 +705,58 @@ export const redeemReward = async (studentId: string, rewardId: string): Promise
         is_active: true,
     }).select().single();
 
-    if (offerError) {
-        await supabase.from('users').update({ loyalty_points: user.loyalty_points }).eq('id', studentId);
-        throw new Error('Failed to create coupon. Your points have not been deducted.');
-    }
+    // Fix: Complete the function to handle error and return a value
+    if (offerError) throw new Error('Failed to create coupon from reward.');
     
     return mapDbOfferToAppOffer(newOffer);
 };
 
-const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = error => reject(error);
-    });
-}
+// Fix: Add missing functions for Bank Details, Menu Management, and Canteen Gallery
+export const getOwnerBankDetails = async (ownerId: string): Promise<OwnerBankDetails> => {
+    const { data, error } = await supabase.from('owner_bank_details').select('*').eq('owner_id', ownerId).maybeSingle();
+    if (error) throw error;
+    return data || { accountNumber: '', bankName: '', ifscCode: '', upiId: '', email: '', phone: '' };
+};
 
+export const requestSaveBankDetailsOtp = async (details: OwnerBankDetails): Promise<{ message: string }> => {
+    // Mock OTP logic
+    console.log(`OTP for bank details update: 123456`);
+    return { message: "OTP sent to your registered phone and email." };
+};
 
-export const addMenuItem = async (itemData: any, ownerId: string): Promise<MenuItem> => {
-    const dbPayload = {
+export const verifyOtpAndSaveBankDetails = async (details: OwnerBankDetails, otp: string, ownerId: string): Promise<OwnerBankDetails> => {
+    if (otp !== '123456') { // Mock OTP check
+        throw new Error('Invalid OTP. Please try again.');
+    }
+    const payload = {
+        owner_id: ownerId,
+        account_number: details.accountNumber,
+        bank_name: details.bankName,
+        ifsc_code: details.ifscCode,
+        upi_id: details.upiId,
+        email: details.email,
+        phone: details.phone,
+    };
+    const { data, error } = await supabase
+        .from('owner_bank_details')
+        .upsert(payload, { onConflict: 'owner_id' })
+        .select()
+        .single();
+        
+    if (error) throw error;
+
+    return {
+        accountNumber: data.account_number,
+        bankName: data.bank_name,
+        ifscCode: data.ifsc_code,
+        upiId: data.upi_id,
+        email: data.email,
+        phone: data.phone,
+    };
+};
+
+export const addMenuItem = async (itemData: Partial<MenuItem> & { price: number }, ownerId: string): Promise<MenuItem> => {
+    const payload = {
         name: itemData.name,
         price: itemData.price,
         image_url: itemData.imageUrl,
@@ -652,114 +766,74 @@ export const addMenuItem = async (itemData: any, ownerId: string): Promise<MenuI
         is_combo: itemData.isCombo,
         combo_items: itemData.comboItems,
     };
-    const { data, error } = await supabase.from('menu').insert(dbPayload).select().single();
+    const { data, error } = await supabase.from('menu').insert(payload).select().single();
     if (error) throw error;
     return mapDbMenuToAppMenu(data);
 };
-export const updateMenuItem = async (itemId: string, itemData: any): Promise<MenuItem> => {
-    const dbPayload: Record<string, any> = {};
-    if (itemData.name !== undefined) dbPayload.name = itemData.name;
-    if (itemData.price !== undefined) dbPayload.price = itemData.price;
-    if (itemData.imageUrl !== undefined) dbPayload.image_url = itemData.imageUrl;
-    if (itemData.isAvailable !== undefined) dbPayload.is_available = itemData.isAvailable;
-    if (itemData.emoji !== undefined) dbPayload.emoji = itemData.emoji;
-    if (itemData.description !== undefined) dbPayload.description = itemData.description;
-    if (itemData.isCombo !== undefined) dbPayload.is_combo = itemData.isCombo;
-    if (itemData.comboItems !== undefined) dbPayload.combo_items = itemData.comboItems;
 
-    const { data, error } = await supabase.from('menu').update(dbPayload).eq('id', itemId).select().single();
+export const updateMenuItem = async (itemId: string, itemData: Partial<MenuItem>): Promise<MenuItem> => {
+    const payload: Record<string, any> = {};
+    if(itemData.name) payload.name = itemData.name;
+    if(itemData.price) payload.price = itemData.price;
+    if(itemData.imageUrl) payload.image_url = itemData.imageUrl;
+    if(itemData.isAvailable !== undefined) payload.is_available = itemData.isAvailable;
+    if(itemData.emoji) payload.emoji = itemData.emoji;
+    if(itemData.description) payload.description = itemData.description;
+    if(itemData.isCombo !== undefined) payload.is_combo = itemData.isCombo;
+    if(itemData.comboItems) payload.combo_items = itemData.comboItems;
+    
+    const { data, error } = await supabase.from('menu').update(payload).eq('id', itemId).select().single();
     if (error) throw error;
     return mapDbMenuToAppMenu(data);
 };
+
 export const removeMenuItem = async (itemId: string): Promise<void> => {
     const { error } = await supabase.from('menu').delete().eq('id', itemId);
     if (error) throw error;
 };
-export const getStudentPastRewardCoupons = async (studentId: string): Promise<(Offer & { awardedDate: Date; })[]> => ([]);
 
-// --- Bank Details Mocks ---
-let ownerBankDetails: OwnerBankDetails = {
-    accountNumber: '123456789012',
-    bankName: 'Mock Bank',
-    ifscCode: 'MOCK0001234',
-    upiId: 'mock.owner@upi',
-    email: 'owner@example.com',
-    phone: '9988776655',
+const processImageForUpload = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = error => reject(error);
+    });
 };
-
-export const getOwnerBankDetails = async (ownerId: string): Promise<OwnerBankDetails> => {
-    console.log(`Fetching bank details for owner ${ownerId}`);
-    return Promise.resolve(ownerBankDetails);
-};
-
-export const requestSaveBankDetailsOtp = async (details: OwnerBankDetails): Promise<void> => {
-    console.log('OTP requested for saving bank details:', details);
-    // Mock OTP is '123456'
-    return Promise.resolve();
-};
-
-export const verifyOtpAndSaveBankDetails = async (details: OwnerBankDetails, otp: string, ownerId: string): Promise<OwnerBankDetails> => {
-    console.log(`Verifying OTP ${otp} for owner ${ownerId}`);
-    if (otp !== '123456') {
-        throw new Error('Invalid OTP. Please try again.');
-    }
-    ownerBankDetails = { ...details };
-    return Promise.resolve(ownerBankDetails);
-};
-
-// --- Canteen Gallery Mocks ---
-let canteenPhotos: CanteenPhoto[] = [
-    { id: 'photo1', data: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=800&auto=format&fit=crop', uploadedAt: new Date() },
-    { id: 'photo2', data: 'https://images.unsplash.com/photo-1592861956120-e524fc739696?q=80&w=800&auto=format&fit=crop', uploadedAt: new Date() },
-];
 
 export const getCanteenPhotos = async (): Promise<CanteenPhoto[]> => {
-    return Promise.resolve([...canteenPhotos]);
+    const { data, error } = await supabase.from('canteen_photos').select('*').order('uploaded_at', { ascending: false });
+    if (error) throw error;
+    return data.map(p => ({
+        id: p.id,
+        data: p.data,
+        uploadedAt: new Date(p.uploaded_at),
+    }));
 };
 
 export const addCanteenPhoto = async (file: File): Promise<CanteenPhoto> => {
-    const dataUrl = await fileToBase64(file);
-    const newPhoto: CanteenPhoto = {
-        id: `photo${Date.now()}`,
-        data: dataUrl,
-        uploadedAt: new Date(),
+    const dataUrl = await processImageForUpload(file);
+    const { data, error } = await supabase.from('canteen_photos').insert({ data: dataUrl }).select().single();
+    if (error) throw error;
+    return {
+        id: data.id,
+        data: data.data,
+        uploadedAt: new Date(data.uploaded_at),
     };
-    canteenPhotos.unshift(newPhoto);
-    return Promise.resolve(newPhoto);
 };
 
 export const deleteCanteenPhoto = async (photoId: string): Promise<void> => {
-    canteenPhotos = canteenPhotos.filter(p => p.id !== photoId);
-    return Promise.resolve();
+    const { error } = await supabase.from('canteen_photos').delete().eq('id', photoId);
+    if (error) throw error;
 };
 
 export const updateCanteenPhoto = async (photoId: string, file: File): Promise<CanteenPhoto> => {
-    const dataUrl = await fileToBase64(file);
-    const photoIndex = canteenPhotos.findIndex(p => p.id === photoId);
-    if (photoIndex === -1) throw new Error("Photo not found");
-    canteenPhotos[photoIndex].data = dataUrl;
-    return Promise.resolve(canteenPhotos[photoIndex]);
-};
-
-export const applyCoupon = async (code: string, subtotal: number, studentId: string): Promise<number> => (0);
-
-export const getAdminDashboardStats = async (): Promise<AdminStats> => {
-    const { count: totalUsers, error: e1 } = await supabase.from('users').select('*', { count: 'exact', head: true });
-    const { count: totalCustomers, error: e2 } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', RoleEnum.STUDENT);
-    const { count: totalOwners, error: e3 } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', RoleEnum.CANTEEN_OWNER);
-    const { count: pendingApprovals, error: e4 } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('approval_status', 'pending');
-    const { count: totalFeedbacks, error: e5 } = await supabase.from('feedbacks').select('*', { count: 'exact', head: true });
-
-    if (e1 || e2 || e3 || e4 || e5) {
-        console.error(e1, e2, e3, e4, e5);
-        throw new Error("Failed to fetch admin stats.");
-    }
-    
+    const dataUrl = await processImageForUpload(file);
+    const { data, error } = await supabase.from('canteen_photos').update({ data: dataUrl }).eq('id', photoId).select().single();
+    if (error) throw error;
     return {
-        totalUsers: totalUsers || 0,
-        totalCustomers: totalCustomers || 0,
-        totalOwners: totalOwners || 0,
-        pendingApprovals: pendingApprovals || 0,
-        totalFeedbacks: totalFeedbacks || 0,
-    }
-}
+        id: data.id,
+        data: data.data,
+        uploadedAt: new Date(data.uploaded_at),
+    };
+};
