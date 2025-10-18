@@ -58,7 +58,7 @@ const OrderCard: React.FC<{ order: Order; onReorder: (order: Order) => void; }> 
                     <p className="text-sm text-textSecondary">{order.timestamp.toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
                 <div className="flex items-center gap-4">
-                    <p className="font-black font-heading text-2xl text-primary">₹{order.totalAmount.toFixed(2)}</p>
+                    <p className="font-black font-heading text-2xl text-primary">₹{(order.totalAmount || 0).toFixed(2)}</p>
                     <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 text-textSecondary transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
@@ -85,12 +85,12 @@ const OrderCard: React.FC<{ order: Order; onReorder: (order: Order) => void; }> 
                             {order.discountAmount && (
                                 <div className="flex justify-between text-sm text-green-400">
                                     <span>Discount ({order.couponCode})</span>
-                                    <span>- ₹{order.discountAmount.toFixed(2)}</span>
+                                    <span>- ₹{(order.discountAmount || 0).toFixed(2)}</span>
                                 </div>
                             )}
                              <div className="flex justify-between font-bold font-heading text-textPrimary">
                                 <span>Total</span>
-                                <span>₹{order.totalAmount.toFixed(2)}</span>
+                                <span>₹{(order.totalAmount || 0).toFixed(2)}</span>
                             </div>
                         </div>
                         <div className="flex-shrink-0 sm:w-48 text-center sm:border-l sm:border-surface-light sm:pl-4">
@@ -106,7 +106,7 @@ const OrderCard: React.FC<{ order: Order; onReorder: (order: Order) => void; }> 
                             )}
                             {order.status === OrderStatus.CANCELLED && order.refundAmount != null && (
                                 <p className="mt-4 text-sm text-red-400 bg-red-500/20 p-2 rounded-md">
-                                    A refund of ₹{order.refundAmount.toFixed(2)} has been processed.
+                                    A refund of ₹{(order.refundAmount || 0).toFixed(2)} has been processed.
                                 </p>
                             )}
                         </div>

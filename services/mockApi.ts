@@ -28,7 +28,7 @@ export const mapDbOrderToAppOrder = (dbOrder: any): Order => {
         couponCode: dbOrder.coupon_code,
         discountAmount: dbOrder.discount_amount,
         refundAmount: dbOrder.refund_amount,
-        collectedByStaffId: dbOrder.collected_by_staff_id,
+        collectedByStaffId: dbOrder.collected_by_staff_id ? String(dbOrder.collected_by_staff_id) : undefined,
         seatNumber: seatNumber,
     };
 };
@@ -314,12 +314,21 @@ export const verifyQrCodeAndCollectOrder = async (qrToken: string, staffId: stri
     if (order.status !== OrderStatusEnum.PREPARED && order.status !== OrderStatusEnum.PENDING) {
         throw new Error('This order cannot be collected (it may have been cancelled or is not ready).');
     }
+
+    // WORKAROUND: The 'collected_by_staff_id' column is of type 'bigint', but we are passing a UUID.
+    // To fix this without changing the DB schema, we convert the first part of the UUID string into an integer.
+    // This is not guaranteed to be unique but is a pragmatic solution for a small number of staff.
+    const numericStaffId = parseInt(staffId.split('-')[0], 16);
+    if (isNaN(numericStaffId)) {
+        // This case should ideally not happen with valid UUIDs.
+        throw new Error('Could not generate a valid numeric ID for the staff member.');
+    }
     
     const { data: updatedOrder, error: updateError } = await supabase
         .from('orders')
         .update({ 
             status: OrderStatusEnum.COLLECTED, 
-            // collected_by_staff_id: staffId // Temporarily removed: This causes a `bigint` type error, suggesting a DB schema mismatch.
+            collected_by_staff_id: numericStaffId
         })
         .eq('id', order.id)
         .select('*')

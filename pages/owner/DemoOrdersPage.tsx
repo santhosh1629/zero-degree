@@ -18,7 +18,6 @@ const DemoOrderCard: React.FC<{ order: Order }> = ({ order }) => {
                                 {`DEMO-${order.id.slice(-6).toUpperCase()}`}
                             </p>
                             <p className="text-sm text-gray-400">
-                                {/* Fix: Changed customerName to studentName to match the Order type. */}
                                 Placed by: {order.studentName}
                             </p>
                             <p className="text-xs text-gray-500">

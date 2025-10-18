@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import type { Order, MenuItem, SalesSummary, StudentPoints, TodaysDashboardStats, User } from '../../types';
 import { OrderStatus } from '../../types';
 import { 
     getOwnerOrders, updateOrderStatus, getMenu, updateMenuAvailability, getSalesSummary, 
-    getMostSellingItems, getOrderStatusSummary, getStudentPointsList, getTodaysDashboardStats, getTodaysDetailedReport, mapDbOrderToAppOrder,
+    getMostSellingItems, getOrderStatusSummary, getStudentPointsList, getTodaysDashboardStats, getTodaysDetailedReport,
     getScanTerminalStaff, deleteScanTerminalStaff
 } from '../../services/mockApi';
 import { supabase } from '../../services/supabase';
@@ -114,7 +115,7 @@ const StaffScanLeaderboard: React.FC<{ counts: { name: string; count: number }[]
         {counts.length > 0 ? (
             <ul className="space-y-3">
                 {counts.map((staff, index) => (
-                    <li key={staff.name} className="flex items-center justify-between bg-gray-700/50 p-3 rounded-lg transition-transform hover:scale-105">
+                    <li key={staff.name + index} className="flex items-center justify-between bg-gray-700/50 p-3 rounded-lg transition-transform hover:scale-105">
                         <div className="flex items-center gap-3">
                             <span className={`font-bold text-lg w-8 text-center ${index === 0 ? 'text-amber-400' : index === 1 ? 'text-gray-300' : index === 2 ? 'text-orange-400' : 'text-gray-500'}`}>
                                 {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
@@ -254,7 +255,7 @@ const OrderHistoryView: React.FC<{ orders: Order[] }> = ({ orders }) => {
         <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
             <h3 className="font-bold mb-4 text-gray-200">Completed/Cancelled Orders</h3>
             <div className="mb-4"><select value={filter} onChange={e => setFilter(e.target.value as any)} className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-2"><option value="all">All</option><option value={OrderStatus.COLLECTED}>Collected</option><option value={OrderStatus.CANCELLED}>Cancelled</option></select></div>
-            <div className="overflow-x-auto max-h-[60vh] scrollbar-thin pr-2">{filteredOrders.length > 0 ? <table className="min-w-full divide-y divide-gray-700"><thead className="bg-gray-700/50 sticky top-0"><tr><th className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Order ID</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Customer</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Date</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Status</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Total</th></tr></thead><tbody className="bg-gray-800 divide-y divide-gray-700">{filteredOrders.map(order => (<tr key={order.id}><td className="px-4 py-2 text-sm text-gray-400">...{order.id.slice(-6)}</td><td className="px-4 py-2 text-sm text-gray-200">{order.studentName}</td><td className="px-4 py-2 text-sm text-gray-400">{new Date(order.timestamp).toLocaleDateString()}</td><td className="px-4 py-2"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(order.status)}`}>{order.status}</span></td><td className="px-4 py-2 text-sm font-semibold text-gray-200">₹{order.totalAmount.toFixed(2)}</td></tr>))}</tbody></table> : <p className="text-center text-gray-400 py-4">No historical orders found.</p>}</div>
+            <div className="overflow-x-auto max-h-[60vh] scrollbar-thin pr-2">{filteredOrders.length > 0 ? <table className="min-w-full divide-y divide-gray-700"><thead className="bg-gray-700/50 sticky top-0"><tr><th className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Order ID</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Customer</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Date</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Status</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Total</th></tr></thead><tbody className="bg-gray-800 divide-y divide-gray-700">{filteredOrders.map(order => (<tr key={order.id}><td className="px-4 py-2 text-sm text-gray-400">...{order.id.slice(-6)}</td><td className="px-4 py-2 text-sm text-gray-200">{order.studentName}</td><td className="px-4 py-2 text-sm text-gray-400">{new Date(order.timestamp).toLocaleDateString()}</td><td className="px-4 py-2"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(order.status)}`}>{order.status}</span></td><td className="px-4 py-2 text-sm font-semibold text-gray-200">₹{(order.totalAmount || 0).toFixed(2)}</td></tr>))}</tbody></table> : <p className="text-center text-gray-400 py-4">No historical orders found.</p>}</div>
         </div>
     );
 };
@@ -372,8 +373,7 @@ export const OwnerDashboard: React.FC = () => {
                 getOrderStatusSummary(), getStudentPointsList(), getTodaysDashboardStats(), getScanTerminalStaff()
             ]);
 
-            const mappedOrders = ordersData.map(mapDbOrderToAppOrder);
-            setOrders(mappedOrders);
+            setOrders(ordersData);
             setMenu(menuData);
             setSalesSummary(salesData);
             setMostSellingItems(sellingItemsData);
@@ -385,7 +385,7 @@ export const OwnerDashboard: React.FC = () => {
             const todayStart = new Date();
             todayStart.setHours(0, 0, 0, 0);
 
-            const collectedToday = mappedOrders.filter(o => o.status === OrderStatus.COLLECTED && new Date(o.timestamp) >= todayStart && o.collectedByStaffId);
+            const collectedToday = ordersData.filter(o => o.status === OrderStatus.COLLECTED && new Date(o.timestamp) >= todayStart && o.collectedByStaffId);
             const scanCounts: { [key: string]: number } = {};
             
             for (const order of collectedToday) {
@@ -394,7 +394,17 @@ export const OwnerDashboard: React.FC = () => {
                 }
             }
             
-            const staffMap = new Map(staffData.map(s => [s.id, s.username]));
+            // Combine scan-only staff with the main owner for the leaderboard map
+            const allScanners = user ? [...staffData, user] : staffData;
+            
+            // WORKAROUND: Use the same numeric ID logic as in verifyQrCodeAndCollectOrder.
+            // The `collected_by_staff_id` is stored as an integer, so we map users by a derived integer ID.
+            const staffMap = new Map(allScanners.map(s => {
+                // This logic must match the one in `verifyQrCodeAndCollectOrder`
+                const numericId = parseInt(s.id.split('-')[0], 16);
+                return [String(numericId), s.username];
+            }));
+
             const leaderboard = Object.entries(scanCounts)
                 .map(([staffId, count]) => ({ name: staffMap.get(staffId) || 'Unknown Staff', count }))
                 .sort((a, b) => b.count - a.count);
@@ -456,15 +466,63 @@ export const OwnerDashboard: React.FC = () => {
         </button>
     );
 
+    const renderOrderDetails = (order: Order) => {
+      const { id, studentName, customerPhone, seatNumber, items, totalAmount, couponCode, discountAmount } = order;
+      const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+      return (
+        <div className="text-sm text-gray-300 space-y-4">
+          <div>
+            <h3 className="font-bold text-lg text-white mb-2">Customer Details</h3>
+            <p><strong>Name:</strong> {studentName}</p>
+            {customerPhone && <p><strong>Phone:</strong> {customerPhone}</p>}
+            {seatNumber && <p className="font-bold text-lg text-amber-400 mt-2">🪑 Seat Number: {seatNumber}</p>}
+          </div>
+
+          <div>
+            <h3 className="font-bold text-lg text-white mb-2">Items Ordered</h3>
+            <ul className="space-y-2">
+              {items.map(item => (
+                <li key={item.id} className="border-b border-gray-700 pb-2">
+                  <div className="flex justify-between">
+                    <span>{item.name} x {item.quantity}</span>
+                    <span>₹{(item.price * item.quantity).toFixed(2)}</span>
+                  </div>
+                  {item.notes && <p className="text-xs text-indigo-400 italic pl-2">Note: "{item.notes}"</p>}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="font-bold text-lg text-white mb-2">Payment Summary</h3>
+            <div className="space-y-1">
+              <div className="flex justify-between"><span>Subtotal:</span><span>₹{subtotal.toFixed(2)}</span></div>
+              {discountAmount && discountAmount > 0 && (
+                <div className="flex justify-between text-green-400">
+                  <span>Discount ({couponCode}):</span>
+                  <span>- ₹{discountAmount.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold text-xl pt-2 border-t border-gray-600">
+                <span>Total Paid:</span>
+                <span>₹{totalAmount.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
         <div className="space-y-8">
             {viewingOrder && (
                 <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in-down" onClick={() => setViewingOrder(null)}>
-                    <div className="bg-gray-800 p-6 rounded-lg max-w-2xl w-full border border-gray-700 relative" onClick={e => e.stopPropagation()}>
+                    <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full border border-gray-700 relative" onClick={e => e.stopPropagation()}>
                         <button onClick={() => setViewingOrder(null)} className="absolute top-2 right-2 text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
                         <h2 className="text-2xl font-bold mb-4">Order ...{viewingOrder.id.slice(-6)}</h2>
-                        <div className="text-sm bg-gray-900 p-4 rounded-md overflow-x-auto scrollbar-thin max-h-[60vh]">
-                            <pre>{JSON.stringify(viewingOrder, null, 2)}</pre>
+                        <div className="overflow-y-auto scrollbar-thin max-h-[60vh] pr-2">
+                            {renderOrderDetails(viewingOrder)}
                         </div>
                     </div>
                 </div>
