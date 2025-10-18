@@ -53,7 +53,7 @@ const OrderCard: React.FC<{ order: Order; onReorder: (order: Order) => void; }> 
             >
                 <div>
                     <p className="font-bold font-heading text-lg flex items-center gap-2">
-                        {order.orderNumber ? `Order Num ${order.orderNumber}`: `Order #${order.id.slice(-6)}`}
+                        Order #{order.id.slice(-6)}
                     </p>
                     <p className="text-sm text-textSecondary">{order.timestamp.toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                 </div>

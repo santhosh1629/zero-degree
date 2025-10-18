@@ -117,7 +117,7 @@ const OrderSuccessPage: React.FC = () => {
           {isCollected ? "Order Collected!" : "Payment Successful!"}
         </h1>
         <p className="text-textSecondary mt-2 animate-slide-in-up opacity-0" style={{ animationDelay: '200ms' }}>
-          Thank you! Your order <span className="font-bold">{order.orderNumber ? `Order Num ${order.orderNumber}`: `#${order.id.slice(-6)}`}</span> {isCollected ? 'has been collected.' : 'is being prepared.'}
+          Thank you! Your order <span className="font-bold">#{order.id.slice(-6)}</span> {isCollected ? 'has been collected.' : 'is being prepared.'}
         </p>
       </div>
 

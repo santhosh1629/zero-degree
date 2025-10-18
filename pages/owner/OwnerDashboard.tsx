@@ -178,7 +178,7 @@ const OrdersManager: React.FC<{orders: Order[], onStatusUpdate: () => void, onVi
                         <tbody className="bg-gray-800 divide-y divide-gray-700">
                             {displayedOrders.map(order => (
                                 <tr key={order.id}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{order.orderNumber ? `Order Num ${order.orderNumber}`: `...${order.id.slice(-6)}`}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">...{order.id.slice(-6)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm align-top">
                                         <div className="font-medium text-gray-200">{order.studentName}</div>
                                         {order.customerPhone && <div className="text-gray-400">{order.customerPhone}</div>}
@@ -344,338 +344,161 @@ const StaffManagementView: React.FC<{
     );
 }
 
-const OwnerDashboard: React.FC = () => {
-    const { user, updateUser, registerStaffUser } = useAuth();
-    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+export const OwnerDashboard: React.FC = () => {
+    const { user, registerStaffUser } = useAuth();
     const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
-    
-    const [imageSource, setImageSource] = useState<File | null>(null);
-    const [imageUrlInput, setImageUrlInput] = useState('');
-    const [imagePreview, setImagePreview] = useState<string | null>(null);
-    const [imageError, setImageError] = useState('');
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [activeImageTab, setActiveImageTab] = useState<'upload' | 'url'>('upload');
-
     const [activeTab, setActiveTab] = useState<DashboardTab>('live');
-    const [loading, setLoading] = useState(true);
-    const [todaysStats, setTodaysStats] = useState<TodaysDashboardStats | null>(null);
+
     const [orders, setOrders] = useState<Order[]>([]);
     const [menu, setMenu] = useState<MenuItem[]>([]);
-    const [salesSummary, setSalesSummary] = useState<SalesSummary | null>(null);
+    const [salesSummary, setSalesSummary] = useState<SalesSummary>({ daily: [], weekly: [] });
     const [mostSellingItems, setMostSellingItems] = useState<{ name: string; count: number }[]>([]);
     const [orderStatusSummary, setOrderStatusSummary] = useState<{ name: string; value: number }[]>([]);
     const [customerPoints, setCustomerPoints] = useState<StudentPoints[]>([]);
-    const [staffAccounts, setStaffAccounts] = useState<User[]>([]);
+    const [todaysStats, setTodaysStats] = useState<TodaysDashboardStats>({ totalOrders: 0, totalIncome: 0, itemsSold: [] });
+    const [staff, setStaff] = useState<User[]>([]);
     const [staffScanCounts, setStaffScanCounts] = useState<{ name: string; count: number }[]>([]);
     
+    const [loading, setLoading] = useState(true);
+
     const fetchData = useCallback(async () => {
         if (!user) return;
         try {
-            const [statsData, ordersData, menuData, salesData, sellingItemsData, statusSummaryData, customerPointsData, staffData] = await Promise.all([
-                getTodaysDashboardStats(), getOwnerOrders(), getMenu(), getSalesSummary(), 
-                getMostSellingItems(), getOrderStatusSummary(), getStudentPointsList(), getScanTerminalStaff()
+            const [
+                ordersData, menuData, salesData, sellingItemsData, statusSummaryData,
+                pointsData, todaysStatsData, staffData
+            ] = await Promise.all([
+                getOwnerOrders(), getMenu(), getSalesSummary(), getMostSellingItems(),
+                getOrderStatusSummary(), getStudentPointsList(), getTodaysDashboardStats(), getScanTerminalStaff()
             ]);
-            setTodaysStats(statsData); setOrders(ordersData); setMenu(menuData); setSalesSummary(salesData);
-            setMostSellingItems(sellingItemsData); setOrderStatusSummary(statusSummaryData); setCustomerPoints(customerPointsData);
-            setStaffAccounts(staffData);
-        } catch (error) { console.error("Failed to fetch dashboard data", error); } 
-        finally { setLoading(false); }
+
+            const mappedOrders = ordersData.map(mapDbOrderToAppOrder);
+            setOrders(mappedOrders);
+            setMenu(menuData);
+            setSalesSummary(salesData);
+            setMostSellingItems(sellingItemsData);
+            setOrderStatusSummary(statusSummaryData);
+            setCustomerPoints(pointsData);
+            setTodaysStats(todaysStatsData);
+            setStaff(staffData);
+
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+
+            const collectedToday = mappedOrders.filter(o => o.status === OrderStatus.COLLECTED && new Date(o.timestamp) >= todayStart && o.collectedByStaffId);
+            const scanCounts: { [key: string]: number } = {};
+            
+            for (const order of collectedToday) {
+                if (order.collectedByStaffId) {
+                    scanCounts[order.collectedByStaffId] = (scanCounts[order.collectedByStaffId] || 0) + 1;
+                }
+            }
+            
+            const staffMap = new Map(staffData.map(s => [s.id, s.username]));
+            const leaderboard = Object.entries(scanCounts)
+                .map(([staffId, count]) => ({ name: staffMap.get(staffId) || 'Unknown Staff', count }))
+                .sort((a, b) => b.count - a.count);
+
+            setStaffScanCounts(leaderboard);
+
+        } catch (error) {
+            console.error("Failed to fetch dashboard data:", error);
+        } finally {
+            setLoading(false);
+        }
     }, [user]);
 
     useEffect(() => {
+        setLoading(true);
         fetchData();
-
-        const channel = supabase.channel('public:orders');
-        channel
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-              console.log('Change received!', payload);
-              if (payload.eventType === 'INSERT') {
-                  const newOrder = mapDbOrderToAppOrder(payload.new);
-                  setOrders(prev => [newOrder, ...prev]);
-                   window.dispatchEvent(new CustomEvent('show-owner-toast', { detail: { message: `New Order from ${newOrder.studentName}!` } }));
-              } else if (payload.eventType === 'UPDATE') {
-                  const updatedOrder = mapDbOrderToAppOrder(payload.new);
-                  setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
-              }
-              // Re-fetch stats on any change for simplicity
-              getTodaysDashboardStats().then(setTodaysStats);
-          })
-          .subscribe();
-
+    }, [fetchData]);
+    
+    useEffect(() => {
+        const channel = supabase
+            .channel('public:orders')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, payload => {
+                console.log('Order change received!', payload);
+                fetchData();
+            })
+            .subscribe();
         return () => {
             supabase.removeChannel(channel);
         };
     }, [fetchData]);
 
-    useEffect(() => {
-        if (!loading && orders.length > 0 && user) {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
 
-            const todaysCollectedOrders = orders.filter(
-                o => o.status === OrderStatus.COLLECTED && new Date(o.timestamp) >= today && o.collectedByStaffId
-            );
-    
-            const scanCounts = new Map<string, number>();
-            todaysCollectedOrders.forEach(order => {
-                scanCounts.set(order.collectedByStaffId!, (scanCounts.get(order.collectedByStaffId!) || 0) + 1);
-            });
-    
-            const allStaffAndOwner: User[] = [...staffAccounts];
-            // Ensure owner is in the list for tracking their own scans
-            if (user && !allStaffAndOwner.some(s => s.id === user.id)) {
-                allStaffAndOwner.push(user);
-            }
-
-            const leaderboardData = allStaffAndOwner.map(staff => ({
-                name: staff.username,
-                count: scanCounts.get(staff.id) || 0,
-            }))
-            .filter(item => item.count > 0) // Only show staff with scans
-            .sort((a, b) => b.count - a.count);
-
-            setStaffScanCounts(leaderboardData);
-        }
-    }, [orders, staffAccounts, user, loading]);
-    
-    const handleAddStaff = async (details: { name: string; phone: string; password: string }) => {
-        await registerStaffUser(details.name, details.phone, details.password);
-        fetchData(); // Refresh list
-    };
-
-    const handleDeleteStaff = async (userId: string) => {
-        if (window.confirm("Are you sure you want to remove this staff member? This action cannot be undone.")) {
-            await deleteScanTerminalStaff(userId);
-            fetchData(); // Refresh list
-        }
-    };
-
-    const handleMenuAvailabilityChange = async (itemId: string, isAvailable: boolean) => {
+    const handleAvailabilityChange = async (itemId: string, isAvailable: boolean) => {
         try {
             await updateMenuAvailability(itemId, isAvailable);
             setMenu(prev => prev.map(item => item.id === itemId ? { ...item, isAvailable } : item));
         } catch (error) { console.error("Failed to update menu availability", error); }
     };
-    
-    const processImage = async (source: File | string): Promise<string | null> => {
-        return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.onload = () => {
-                URL.revokeObjectURL(img.src);
-                const MAX_WIDTH = 150;
-                let width = img.width, height = img.height;
-                if (width > MAX_WIDTH) {
-                    const scale = MAX_WIDTH / width;
-                    width = MAX_WIDTH;
-                    height *= scale;
-                }
-                const canvas = document.createElement('canvas');
-                canvas.width = width; canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                if (!ctx) return reject(new Error('Canvas context failed'));
-                ctx.drawImage(img, 0, 0, width, height);
-                resolve(canvas.toDataURL('image/jpeg', 0.9));
-            };
-            img.onerror = () => reject(new Error('Image load failed'));
-            if (typeof source === 'string') {
-                img.crossOrigin = "Anonymous";
-                img.src = source;
-            } else {
-                img.src = URL.createObjectURL(source);
-            }
-        });
+
+    const handleAddStaff = async (details: { name: string, phone: string, password: string }) => {
+        await registerStaffUser(details.name, details.phone, details.password);
+        fetchData();
     };
 
-    const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            if (file.size > 5 * 1024 * 1024) { setImageError('File is too large (max 5MB).'); return; }
-            
-            // Revoke old object URL to prevent memory leaks
-            if (imagePreview && imagePreview.startsWith('blob:')) {
-                URL.revokeObjectURL(imagePreview);
-            }
-
-            setImageSource(file);
-            setImagePreview(URL.createObjectURL(file));
-            setImageError('');
-        }
-    };
-
-    const handleImageSubmit = async () => {
-        const sourceToProcess = activeImageTab === 'upload' ? imageSource : imageUrlInput;
-        if (!sourceToProcess || !user) { setImageError('Please select a file or provide a URL.'); return; }
-        setIsProcessing(true);
-        setImageError('');
-        try {
-            const compressedDataUrl = await processImage(sourceToProcess);
-            if (!compressedDataUrl) throw new Error("Image processing failed.");
-            await updateUser({ profileImageUrl: compressedDataUrl });
-            closeProfileModal();
-        } catch (error) { setImageError((error as Error).message);
-        } finally { setIsProcessing(false); }
-    };
-    
-    const closeProfileModal = () => {
-        setIsProfileModalOpen(false);
-        setImageError(''); setImageSource(null); setImageUrlInput('');
-        if (imagePreview) URL.revokeObjectURL(imagePreview);
-        setImagePreview(null);
-    }
-
-    const renderContent = () => {
-        if (loading || !todaysStats || !salesSummary) return <div className="text-center p-8 text-gray-300">Loading dashboard data...</div>;
-        switch (activeTab) {
-            case 'live': return <div className="space-y-6"><DailyStats stats={todaysStats} /><StaffScanLeaderboard counts={staffScanCounts} /><OrdersManager orders={orders} onStatusUpdate={fetchData} onViewOrder={setViewingOrder}/></div>;
-            case 'analytics': return <AnalyticsView salesSummary={salesSummary} mostSellingItems={mostSellingItems} orderStatusSummary={orderStatusSummary} />;
-            case 'management': return <ManagementView menu={menu} customerPoints={customerPoints} onAvailabilityChange={handleMenuAvailabilityChange} />;
-            case 'history': return <OrderHistoryView orders={orders} />;
-            case 'staff': return <StaffManagementView staff={staffAccounts} onAddStaff={handleAddStaff} onDeleteStaff={handleDeleteStaff} />;
-            default: return null;
+    const handleDeleteStaff = async (userId: string) => {
+        if (window.confirm("Are you sure you want to remove this staff member? This action is permanent.")) {
+            await deleteScanTerminalStaff(userId);
+            fetchData();
         }
     };
     
-    const TabButton: React.FC<{tab: DashboardTab, label: string}> = ({tab, label}) => (
-      <button onClick={() => setActiveTab(tab)} className={`px-4 py-2 font-semibold rounded-md text-sm transition-colors ${activeTab === tab ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}>{label}</button>
+    const historicalOrders = useMemo(() => 
+        orders.filter(o => o.status === OrderStatus.COLLECTED || o.status === OrderStatus.CANCELLED), 
+    [orders]);
+
+    const TabButton: React.FC<{ tab: DashboardTab, label: string }> = ({ tab, label }) => (
+        <button onClick={() => setActiveTab(tab)} className={`px-4 py-2 font-semibold rounded-md text-sm transition-colors ${activeTab === tab ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}>
+            {label}
+        </button>
     );
-    
-    const ProfilePlaceholderIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" /></svg>);
-    const EditIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L16.732 3.732z" /></svg>);
 
     return (
-        <div>
-            <div className="bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700 mb-6 flex items-center gap-4">
-                <div className="relative group flex-shrink-0">
-                    {user?.profileImageUrl ? (
-                        <img src={user.profileImageUrl} alt="Profile" className="w-20 h-20 rounded-full object-cover border-4 border-gray-700" />
-                    ) : (
-                        <div className="w-20 h-20 rounded-full bg-gray-900 flex items-center justify-center border-4 border-gray-700">
-                            <ProfilePlaceholderIcon />
+        <div className="space-y-8">
+            {viewingOrder && (
+                <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in-down" onClick={() => setViewingOrder(null)}>
+                    <div className="bg-gray-800 p-6 rounded-lg max-w-2xl w-full border border-gray-700 relative" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setViewingOrder(null)} className="absolute top-2 right-2 text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
+                        <h2 className="text-2xl font-bold mb-4">Order ...{viewingOrder.id.slice(-6)}</h2>
+                        <div className="text-sm bg-gray-900 p-4 rounded-md overflow-x-auto scrollbar-thin max-h-[60vh]">
+                            <pre>{JSON.stringify(viewingOrder, null, 2)}</pre>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+            {loading ? (
+                 <div className="text-center py-10">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mx-auto"></div>
+                    <p className="mt-4 text-gray-400">Loading Dashboard...</p>
+                </div>
+            ) : (
+                <>
+                    <DailyStats stats={todaysStats} />
+                    
+                    <div className="bg-gray-800/50 backdrop-blur-md border border-gray-700 p-2 rounded-lg flex flex-wrap gap-2 mb-6 sticky top-20 z-10">
+                        <TabButton tab="live" label="Live View" />
+                        <TabButton tab="analytics" label="Analytics" />
+                        <TabButton tab="management" label="Management" />
+                        <TabButton tab="history" label="History" />
+                        <TabButton tab="staff" label="Staff" />
+                    </div>
+
+                    {activeTab === 'live' && (
+                        <div className="space-y-6 animate-fade-in-down">
+                            <OrdersManager orders={orders} onStatusUpdate={fetchData} onViewOrder={setViewingOrder} />
+                            <StaffScanLeaderboard counts={staffScanCounts} />
                         </div>
                     )}
-                    <button onClick={() => setIsProfileModalOpen(true)} aria-label="Edit profile picture" className="absolute inset-0 w-full h-full bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                        <EditIcon />
-                    </button>
-                </div>
-                <div>
-                    <h1 className="text-2xl font-bold text-white">Welcome, {user?.username}</h1>
-                    <p className="text-gray-400 text-sm">Here's what's happening with your canteen today.</p>
-                </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 mb-6 bg-gray-800 p-2 rounded-lg border border-gray-700"><TabButton tab="live" label="Live View" /><TabButton tab="analytics" label="Analytics" /><TabButton tab="management" label="Management" /><TabButton tab="history" label="Order History" /><TabButton tab="staff" label="Staff" /></div>
-            {renderContent()}
-
-            {isProfileModalOpen && (
-                 <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
-                    <div className="bg-gray-800 border border-gray-700 p-6 rounded-lg shadow-xl w-full max-w-lg animate-fade-in-down">
-                        <h2 className="text-xl font-bold mb-4 text-white">Update Profile Picture</h2>
-                        <div className="border-b border-gray-600 mb-4">
-                            <nav className="-mb-px flex space-x-6">
-                                <button onClick={() => setActiveImageTab('upload')} className={`py-2 px-1 border-b-2 font-semibold text-sm ${activeImageTab === 'upload' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-gray-400 hover:text-white'}`}>Upload File</button>
-                                <button onClick={() => setActiveImageTab('url')} className={`py-2 px-1 border-b-2 font-semibold text-sm ${activeImageTab === 'url' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-gray-400 hover:text-white'}`}>From URL</button>
-                            </nav>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                            <div>
-                                {activeImageTab === 'upload' && (
-                                    <div>
-                                        <label htmlFor="pfp-upload" className="block text-sm font-medium text-gray-300 mb-2">Select an image file:</label>
-                                        <input id="pfp-upload" type="file" onChange={handleImageFileChange} accept="image/png, image/jpeg, image/webp" className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700" />
-                                    </div>
-                                )}
-                                {activeImageTab === 'url' && (
-                                     <div>
-                                        <label htmlFor="pfp-url" className="block text-sm font-medium text-gray-300 mb-2">Enter image URL:</label>
-                                        <input id="pfp-url" type="text" value={imageUrlInput} onChange={e => setImageUrlInput(e.target.value)} placeholder="https://example.com/image.jpg" className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-md text-white focus:ring-indigo-500 focus:border-indigo-500" />
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex flex-col items-center justify-center">
-                                <p className="text-sm font-medium text-gray-300 mb-2">Preview</p>
-                                <div className="w-28 h-28 rounded-full bg-gray-900 flex items-center justify-center overflow-hidden border-2 border-gray-600">
-                                    {imagePreview ? <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" /> : (imageUrlInput && activeImageTab === 'url' ? <img src={imageUrlInput} alt="Preview" className="w-full h-full object-cover" /> : <ProfilePlaceholderIcon />)}
-                                </div>
-                            </div>
-                        </div>
-                        {imageError && <p className="text-red-400 text-sm mt-4 text-center">{imageError}</p>}
-                        <div className="flex justify-end gap-4 mt-6">
-                            <button onClick={closeProfileModal} className="bg-gray-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-500 transition-colors">Cancel</button>
-                            <button onClick={handleImageSubmit} disabled={isProcessing} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-indigo-500/50">
-                                {isProcessing ? 'Processing...' : 'Save Image'}
-                            </button>
-                        </div>
-                    </div>
-                 </div>
+                    {activeTab === 'analytics' && <div className="animate-fade-in-down"><AnalyticsView salesSummary={salesSummary} mostSellingItems={mostSellingItems} orderStatusSummary={orderStatusSummary} /></div>}
+                    {activeTab === 'management' && <div className="animate-fade-in-down"><ManagementView menu={menu} customerPoints={customerPoints} onAvailabilityChange={handleAvailabilityChange} /></div>}
+                    {activeTab === 'history' && <div className="animate-fade-in-down"><OrderHistoryView orders={historicalOrders} /></div>}
+                    {activeTab === 'staff' && <div className="animate-fade-in-down"><StaffManagementView staff={staff} onAddStaff={handleAddStaff} onDeleteStaff={handleDeleteStaff} /></div>}
+                </>
             )}
-            {viewingOrder && <OrderDetailsPopup order={viewingOrder} onClose={() => setViewingOrder(null)} onStatusUpdate={fetchData} />}
         </div>
     );
 };
-
-const OrderDetailsPopup: React.FC<{ order: Order; onClose: () => void; onStatusUpdate: () => void; }> = ({ order, onClose, onStatusUpdate }) => {
-    const [isUpdating, setIsUpdating] = useState(false);
-    const handleStatusUpdate = async (orderId: string, newStatus: OrderStatus) => {
-        setIsUpdating(true);
-        try {
-            await updateOrderStatus(orderId, newStatus);
-            onStatusUpdate();
-            onClose();
-        } catch (error) { 
-            console.error("Failed to update status:", error); 
-        } finally {
-            setIsUpdating(false);
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl w-full max-w-md aspect-square relative flex flex-col animate-pop-in" onClick={e => e.stopPropagation()}>
-                <button onClick={onClose} className="absolute top-3 right-3 text-gray-400 hover:text-white z-10">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-                <div className="p-5 border-b border-gray-700">
-                    <h2 className="text-xl font-bold text-white">Order Details</h2>
-                    <p className="text-sm text-gray-400">ID: {order.orderNumber ? `Order Num ${order.orderNumber}`: `#${order.id.slice(-6)}`}</p>
-                </div>
-                <div className="p-5 flex-grow overflow-y-auto scrollbar-thin">
-                    <div className="space-y-4 text-sm">
-                        <div><span className="font-semibold text-gray-400 w-28 inline-block">Customer:</span> <span className="text-white">{order.studentName}</span></div>
-                        {order.seatNumber && (
-                            <div className="bg-amber-500/10 p-3 rounded-lg border border-amber-500/30">
-                                <span className="font-semibold text-amber-300 w-28 inline-block">Dine-in Seat:</span> 
-                                <span className="font-bold text-2xl text-amber-300">{order.seatNumber}</span>
-                            </div>
-                        )}
-                        <div><span className="font-semibold text-gray-400 w-28 inline-block">Order Time:</span> <span className="text-white">{new Date(order.timestamp).toLocaleString()}</span></div>
-                        <div><span className="font-semibold text-gray-400 w-28 inline-block">Payment Status:</span> <span className="text-green-400 font-semibold">Paid</span></div>
-                        <div>
-                            <span className="font-semibold text-gray-400 w-28 inline-block">Current Status:</span> 
-                            <span className={`ml-2 px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusBadgeClass(order.status)}`}>{order.status}</span>
-                        </div>
-                        <div>
-                            <h4 className="font-semibold text-gray-400 mb-1">Items Ordered:</h4>
-                            <ul className="list-disc list-inside space-y-1 pl-2 text-gray-300">
-                                {order.items.map(i => (
-                                    <li key={i.id}>{i.name} (x{i.quantity})</li>
-                                ))}
-                            </ul>
-                        </div>
-                        <div className="pt-2 border-t border-gray-700">
-                            <span className="font-semibold text-gray-400 w-28 inline-block">Total Amount:</span> <span className="font-bold text-xl text-white">₹{order.totalAmount.toFixed(2)}</span>
-                        </div>
-                    </div>
-                </div>
-                {order.status === OrderStatus.PENDING && (
-                    <div className="p-4 border-t border-gray-700">
-                        <button onClick={() => handleStatusUpdate(order.id, OrderStatus.PREPARED)} disabled={isUpdating} className="w-full bg-blue-600 text-white font-semibold py-2 px-3 rounded-lg text-sm hover:bg-blue-700 transition-colors disabled:bg-blue-800 disabled:cursor-wait">
-                            {isUpdating ? 'Updating...' : 'Mark as Prepared'}
-                        </button>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
-
-export default OwnerDashboard;

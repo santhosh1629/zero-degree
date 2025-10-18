@@ -64,12 +64,12 @@ const ActiveOrderTracker: React.FC<{ order: Order }> = ({ order }) => {
             <div className="container mx-auto px-4 py-2 text-center">
                 {isPrepared && (
                     <p className="font-black">
-                        🔥 Your order {order.orderNumber ? `Order Num ${order.orderNumber}`: `#${order.id.slice(-6)}`} is ready for pickup!
+                        🔥 Your order #{order.id.slice(-6)} is ready for pickup!
                     </p>
                 )}
                 {isPending && (
                     <p className="font-semibold">
-                        🧑‍🍳 Your order {order.orderNumber ? `Order Num ${order.orderNumber}`: `#${order.id.slice(-6)}`} is being prepared. Estimated time remaining: {timeLeft}
+                        🧑‍🍳 Your order #{order.id.slice(-6)} is being prepared. Estimated time remaining: {timeLeft}
                     </p>
                 )}
             </div>

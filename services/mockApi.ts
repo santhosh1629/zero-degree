@@ -16,7 +16,6 @@ export const mapDbOrderToAppOrder = (dbOrder: any): Order => {
 
     return {
         id: dbOrder.id,
-        orderNumber: dbOrder.order_number,
         studentId: dbOrder.student_id,
         studentName: studentName,
         customerPhone: dbOrder.users?.phone || dbOrder.student_phone,
@@ -213,14 +212,7 @@ export const placeOrder = async (orderData: { studentId: string; studentName: st
     }
 
     // Step 2: Create the order
-    const { count, error: countError } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .gte('timestamp', getStartOfToday());
-
-    if (countError) throw countError;
-    const orderNumber = (count || 0) + 1;
-    const qrToken = JSON.stringify({ orderId: `temp-id-${Date.now()}`}); // Temp token
+    const tempQrToken = `temp-id-${Date.now()}`; // Temp token
 
     const { data, error } = await supabase.from('orders').insert([
         { 
@@ -232,8 +224,7 @@ export const placeOrder = async (orderData: { studentId: string; studentName: st
             discount_amount: orderData.discountAmount,
             status: OrderStatusEnum.PENDING,
             order_type: 'real',
-            qr_token: qrToken,
-            order_number: orderNumber,
+            qr_token: tempQrToken,
         }
     ]).select().single();
 
@@ -265,8 +256,8 @@ export const placeOrder = async (orderData: { studentId: string; studentName: st
         }
     }
     
-    // Step 4: Finalize order details (update QR token with real ID)
-    const finalQrToken = JSON.stringify({ orderId: data.id });
+    // Step 4: Finalize order details (update QR token with the order's UUID)
+    const finalQrToken = data.id;
     const { data: updatedData, error: updateError } = await supabase
         .from('orders')
         .update({ qr_token: finalQrToken })
@@ -300,29 +291,45 @@ export const cancelStudentOrder = async (orderId: string, studentId: string): Pr
 };
 
 export const verifyQrCodeAndCollectOrder = async (qrToken: string, staffId: string): Promise<Order> => {
-    let tokenData;
-    try {
-        tokenData = JSON.parse(qrToken);
-    } catch (e) {
-        throw new Error('Invalid QR Code format.');
+    if (!qrToken) {
+        throw new Error('QR code is empty or invalid.');
     }
-    const { orderId } = tokenData;
 
-    const { data: order, error: fetchError } = await supabase.from('orders').select('*').eq('id', orderId).single();
-    if(fetchError || !order) throw new Error('Order not found.');
-    if (order.status === OrderStatusEnum.COLLECTED) throw new Error('Order has already been collected.');
+    const { data: order, error: fetchError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('qr_token', qrToken)
+        .single();
+    
+    if (fetchError || !order) {
+        // Log the actual error message for debugging, then throw a user-friendly message.
+        console.error('QR Verification Error:', fetchError?.message || 'No order found or database error.');
+        throw new Error('Invalid or expired QR code. Please try again.');
+    }
+    
+    if (order.status === OrderStatusEnum.COLLECTED) {
+        throw new Error('This order has already been collected.');
+    }
+    
     if (order.status !== OrderStatusEnum.PREPARED && order.status !== OrderStatusEnum.PENDING) {
-        throw new Error('Order cannot be collected (it may have been cancelled).');
+        throw new Error('This order cannot be collected (it may have been cancelled or is not ready).');
     }
     
     const { data: updatedOrder, error: updateError } = await supabase
         .from('orders')
-        .update({ status: OrderStatusEnum.COLLECTED, collected_by_staff_id: staffId })
-        .eq('id', orderId)
+        .update({ 
+            status: OrderStatusEnum.COLLECTED, 
+            // collected_by_staff_id: staffId // Temporarily removed: This causes a `bigint` type error, suggesting a DB schema mismatch.
+        })
+        .eq('id', order.id)
         .select('*')
         .single();
     
-    if (updateError) throw updateError;
+    if (updateError) {
+        // Log the specific error and throw a standard Error object for the UI to handle.
+        console.error('Order Update Error:', updateError.message);
+        throw new Error(updateError.message || 'Failed to update order status.');
+    }
     return mapDbOrderToAppOrder(updatedOrder);
 };
 

@@ -1,4 +1,5 @@
 
+
 import React, { useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -30,7 +31,7 @@ import RewardsPage from './pages/student/RewardsPage';
 
 // Canteen Owner pages
 import OwnerLayout from './pages/owner/OwnerLayout';
-import OwnerDashboard from './pages/owner/OwnerDashboard';
+import { OwnerDashboard } from './pages/owner/OwnerDashboard';
 import ScanQrPage from './pages/owner/ScanQrPage';
 import FoodPopularityPage from './pages/owner/FoodPopularityPage';
 import RewardsManagementPage from './pages/owner/RewardsManagementPage';
