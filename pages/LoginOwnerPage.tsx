@@ -109,7 +109,7 @@ const LoginOwnerPage: React.FC = () => {
                   <>
                     <div className="text-center mb-8">
                       <h2 className="text-4xl font-bold font-heading text-white">Partner & Admin Login</h2>
-                      <p className="text-gray-300 mt-2">Manage your restaurant or the platform.</p>
+                      <p className="text-gray-300 mt-2">Manage your cinema or the platform.</p>
                     </div>
                     
                     <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">

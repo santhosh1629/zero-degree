@@ -3,10 +3,16 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Role } from '../../types';
 
-const ZeroDegreeIcon = () => (
+const CinemaIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-400">
-        <circle cx="12" cy="12" r="10" />
-        <path d="M12 6v12M8 8l8 8M8 16l8-8" strokeWidth="1.5" />
+        <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+        <line x1="7" y1="2" x2="7" y2="22"></line>
+        <line x1="17" y1="2" x2="17" y2="22"></line>
+        <line x1="2" y1="12" x2="22" y2="12"></line>
+        <line x1="2" y1="7" x2="7" y2="7"></line>
+        <line x1="2" y1="17" x2="7" y2="17"></line>
+        <line x1="17" y1="17" x2="22" y2="17"></line>
+        <line x1="17" y1="7" x2="22" y2="7"></line>
     </svg>
 );
 
@@ -35,8 +41,8 @@ const Header: React.FC = () => {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <Link to={getHomeLink()} className="flex items-center gap-2 text-2xl font-bold font-heading text-indigo-400">
-            <ZeroDegreeIcon />
-            Zero✦Degree
+            <CinemaIcon />
+            Sangeetha Cinemas
           </Link>
           <div className="flex items-center gap-4">
             {user && (

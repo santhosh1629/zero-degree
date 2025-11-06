@@ -173,7 +173,7 @@ const ApprovalPage: React.FC = () => {
                 <div className="flex items-center mb-6">
                     <Link to="/admin/dashboard" className="text-indigo-400 hover:underline">&larr; Back to Dashboard</Link>
                 </div>
-                <h1 className="text-4xl font-bold text-white mb-6">Canteen Owner Approvals</h1>
+                <h1 className="text-4xl font-bold text-white mb-6">Cinema Owner Approvals</h1>
 
                 <div className="bg-gray-800/50 backdrop-blur-md border border-gray-700 p-2 rounded-lg flex flex-wrap gap-2 mb-6 sticky top-20 z-10">
                     <TabButton tab="pending" label="Pending Requests" count={pending.length} />

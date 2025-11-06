@@ -116,7 +116,7 @@ const CartPage: React.FC = () => {
             key: 'rzp_test_1DP5mmOlF5G5ag', // Public test key, replace with your own in production
             amount: totalAmount * 100, // Amount in paise
             currency: "INR",
-            name: "Zero✦Degree",
+            name: "Sangeetha Cinemas",
             description: "Food Order Payment",
             image: "/favicon.ico",
             handler: (response: { razorpay_payment_id: string }) => {

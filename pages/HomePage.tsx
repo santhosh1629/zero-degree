@@ -68,9 +68,7 @@ const HomePage: React.FC = () => {
             <main className="relative z-20 flex flex-col items-center justify-center text-center">
                  {/* Responsive heading */}
                  <h1 className="font-heading text-5xl sm:text-7xl lg:text-9xl font-black whitespace-nowrap" style={{ textShadow: '0 4px 15px rgba(0,0,0,0.5)' }}>
-                    <span className="text-textPrimary">Zero</span>
-                    <span className="text-primary animate-sparkle relative mx-1 md:mx-2">✦</span>
-                    <span className="text-textPrimary">Degree</span>
+                    <span className="text-textPrimary">Sangeetha Cinemas</span>
                 </h1>
 
                 {/* Responsive typewriter */}
@@ -78,10 +76,10 @@ const HomePage: React.FC = () => {
                     <Typewriter
                         options={{
                             strings: [
-                            "HUNGER ATTACK MODE!",
-                            "LATE NIGHT CRAVINGS?",
-                            "SKIP THE LINE. ORDER NOW.",
-                            "FUEL YOUR STUDY SESSION.",
+                            "MOVIE MUNCHIES, DELIVERED.",
+                            "SKIP THE INTERVAL RUSH.",
+                            "SNACKS FOR YOUR SHOWTIME.",
+                            "EAT. WATCH. REPEAT.",
                             ],
                             autoStart: true,
                             loop: true,
@@ -98,13 +96,13 @@ const HomePage: React.FC = () => {
                         onClick={() => navigate('/login-customer')}
                         className="btn-3d w-full bg-primary border-primary-dark text-background font-black py-3 px-4 rounded-xl shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-primary/40"
                     >
-                        I'm Hungry
+                        Order Snacks
                     </button>
                     <button
                         onClick={() => navigate('/login-owner')}
                         className="btn-3d w-full bg-surface-light border-surface text-textPrimary font-black py-3 px-4 rounded-xl shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-surface-light/30"
                     >
-                        I'm a Restaurant Owner
+                        I'm a Cinema Owner
                     </button>
                 </div>
                 <div className="mt-6 w-full max-w-xs sm:max-w-md animate-fade-in-down" style={{animationDelay: '1.1s'}}>

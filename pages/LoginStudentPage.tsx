@@ -137,7 +137,7 @@ const LoginCustomerPage: React.FC = () => {
 
         <div className="text-center mt-6 space-y-2">
             <p><Link to="/register-customer" className="text-sm text-primary/90 hover:text-primary font-bold font-heading transition-colors">Don't have an account? Sign Up</Link></p>
-            <p><Link to="/login-owner" className="text-sm text-textSecondary/60 hover:text-textSecondary/80 font-medium transition-colors">Are you a restaurant partner?</Link></p>
+            <p><Link to="/login-owner" className="text-sm text-textSecondary/60 hover:text-textSecondary/80 font-medium transition-colors">Are you a cinema partner?</Link></p>
         </div>
       </div>
     </div>

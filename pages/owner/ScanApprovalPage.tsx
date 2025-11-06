@@ -43,7 +43,7 @@ const LoginForm: React.FC = () => {
                     setError('Your account is waiting for admin approval.');
                 }
             } else {
-                setError('Access denied. This portal is for partners only.');
+                setError('Access denied. This portal is for cinema partners only.');
             }
         } catch (err) {
             setError((err as Error).message);

@@ -7,7 +7,6 @@ import { Role } from './types';
 import LoadingScreen from './components/common/LoadingScreen';
 
 // Common pages
-import HomePage from './pages/HomePage';
 import LoginCustomerPage from './pages/LoginStudentPage';
 import RegisterCustomerPage from './pages/RegisterStudentPage';
 import LoginOwnerPage from './pages/LoginOwnerPage';
@@ -61,7 +60,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
   }
 
   if (!user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login-customer" replace />;
   }
 
   if (!allowedRoles.includes(user.role)) {
@@ -77,53 +76,59 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
 
 
 const AppRoutes = () => {
-    const { user } = useAuth();
+    const { user, loading } = useAuth();
 
-    const getHomeComponent = () => {
-        if (!user) return <HomePage />;
+    if (loading) {
+        return <LoadingScreen />;
+    }
+    
+    const HomeRedirect = () => {
+        if (!user) {
+            return <Navigate to="/login-customer" replace />;
+        }
+
         switch (user.role) {
             case Role.STUDENT:
-                return <Navigate to="/customer/welcome" replace />;
+                return <Navigate to="/customer/menu" replace />;
             case Role.CANTEEN_OWNER:
-                 if (user.approvalStatus !== 'approved') {
+                if (user.approvalStatus !== 'approved') {
                     return <Navigate to="/login-owner" replace />;
                 }
-                // Differentiate between full owner and scan-only staff
-                if (user.canteenName) {
-                    return <Navigate to="/owner/dashboard" replace />;
-                } else {
-                    return <Navigate to="/scan-terminal/home" replace />;
-                }
+                return user.canteenName
+                    ? <Navigate to="/owner/dashboard" replace />
+                    : <Navigate to="/scan-terminal/home" replace />;
             case Role.ADMIN:
                 return <Navigate to="/admin/dashboard" replace />;
             default:
-                return <HomePage />;
+                return <Navigate to="/login-customer" replace />;
         }
     };
-    
+
     return (
         <Routes>
-            <Route path="/" element={getHomeComponent()} />
-            <Route path="/login-customer" element={<LoginCustomerPage />} />
-            <Route path="/register-customer" element={<RegisterCustomerPage />} />
-            <Route path="/login-owner" element={<LoginOwnerPage />} />
-            <Route path="/register-owner" element={<RegisterOwnerPage />} />
+            <Route path="/" element={<HomeRedirect />} />
+            
+            {/* Public routes accessible without login */}
+            <Route path="/login-customer" element={user ? <Navigate to="/" replace /> : <LoginCustomerPage />} />
+            <Route path="/register-customer" element={user ? <Navigate to="/" replace /> : <RegisterCustomerPage />} />
+            <Route path="/login-owner" element={user ? <Navigate to="/" replace /> : <LoginOwnerPage />} />
+            <Route path="/register-owner" element={user ? <Navigate to="/" replace /> : <RegisterOwnerPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/terms" element={<TermsAndConditionsPage />} />
-            
-            {/* Standalone Customer Welcome Page */}
+            <Route path="/owner/scan-terminal" element={user ? <Navigate to="/" replace /> : <ScanTerminalLoginPage />} />
+
+            {/* Customer Routes */}
             <Route path="/customer/welcome" element={
                 <ProtectedRoute allowedRoles={[Role.STUDENT]}>
                     <WelcomePage />
                 </ProtectedRoute>
             } />
-
-            {/* Customer Routes */}
             <Route path="/customer" element={
                 <ProtectedRoute allowedRoles={[Role.STUDENT]}>
                     <CustomerLayout />
                 </ProtectedRoute>
             }>
+                <Route index element={<Navigate to="menu" replace />} />
                 <Route path="menu" element={<MenuPage />} />
                 <Route path="menu/:itemId" element={<FoodDetailPage />} />
                 <Route path="cart" element={<CartPage />} />
@@ -141,6 +146,7 @@ const AppRoutes = () => {
                     <OwnerLayout />
                 </ProtectedRoute>
             }>
+                <Route index element={<Navigate to="dashboard" replace />} />
                 <Route path="dashboard" element={<OwnerDashboard />} />
                 <Route path="scan" element={<ScanQrPage />} />
                 <Route path="popularity" element={<FoodPopularityPage />} />
@@ -149,18 +155,9 @@ const AppRoutes = () => {
                 <Route path="feedback" element={<OwnerFeedbackPage />} />
                 <Route path="offers" element={<OffersPage />} />
             </Route>
-
-            {/* Standalone Owner pages */}
-            <Route path="/owner/scan-approval" element={<ScanApprovalPage />} />
-            <Route path="/owner/scan-terminal" element={<ScanTerminalLoginPage />} />
-            <Route path="/owner/scan-only" element={
-                 <ProtectedRoute allowedRoles={[Role.CANTEEN_OWNER]}>
-                    <ScanOnlyPage />
-                </ProtectedRoute>
-            } />
-
-             {/* Standalone Scan Terminal page */}
-             <Route path="/scan-terminal/home" element={
+            
+            {/* Standalone Scan Terminal page */}
+            <Route path="/scan-terminal/home" element={
                  <ProtectedRoute allowedRoles={[Role.CANTEEN_OWNER]}>
                     <ScanTerminalHomePage />
                 </ProtectedRoute>
