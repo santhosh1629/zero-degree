@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { CartItem, Offer } from '../../types';
@@ -50,6 +51,7 @@ const CartPage: React.FC = () => {
         }
         setCart(newCart);
         saveCartToStorage(newCart);
+        window.dispatchEvent(new CustomEvent('cartUpdated'));
     };
 
     const handleQuantityChange = (itemId: string, newQuantity: number) => {

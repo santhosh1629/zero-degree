@@ -14,6 +14,16 @@ interface ToastInfo {
   type: ToastType;
 }
 
+const getCartCountFromStorage = () => {
+    try {
+        const cart = localStorage.getItem('cart');
+        const parsedCart: { quantity: number }[] = cart ? JSON.parse(cart) : [];
+        return parsedCart.reduce((total, item) => total + item.quantity, 0);
+    } catch {
+        return 0;
+    }
+};
+
 const ActiveOrderTracker: React.FC<{ order: Order }> = ({ order }) => {
     const [timeLeft, setTimeLeft] = useState('');
 
@@ -118,8 +128,34 @@ const CustomerLayout: React.FC = () => {
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [centerToast, setCenterToast] = useState<ToastInfo | null>(null);
+  const [cartCount, setCartCount] = useState(0);
 
   const greeting = useMemo(() => greetings[Math.floor(Math.random() * greetings.length)], []);
+
+  const updateCartCount = useCallback(() => {
+    const count = getCartCountFromStorage();
+    setCartCount(count);
+  }, []);
+
+  useEffect(() => {
+    updateCartCount(); // Initial count
+
+    const handleStorageChange = (e: StorageEvent) => {
+        if (e.key === 'cart') {
+            updateCartCount();
+        }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('itemAddedToCart', updateCartCount);
+    window.addEventListener('cartUpdated', updateCartCount);
+
+    return () => {
+        window.removeEventListener('storage', handleStorageChange);
+        window.removeEventListener('itemAddedToCart', updateCartCount);
+        window.removeEventListener('cartUpdated', updateCartCount);
+    };
+  }, [updateCartCount]);
 
   useEffect(() => {
     const handleItemAdded = () => {
@@ -350,6 +386,20 @@ const CustomerLayout: React.FC = () => {
                 <Outlet />
             </div>
         </main>
+
+        {/* Floating Cart Button */}
+        {location.pathname !== '/customer/cart' && cartCount > 0 && (
+            <button
+                onClick={() => navigate('/customer/cart')}
+                className="fixed bottom-20 sm:bottom-8 left-1/2 -translate-x-1/2 z-40 h-16 w-16 rounded-full bg-energetic-gradient shadow-lg flex items-center justify-center text-3xl animate-fade-in-up transform transition-transform hover:scale-110 active:scale-95 group"
+                aria-label={`View cart with ${cartCount} items`}
+            >
+                <span className="group-hover:animate-shake">🛒</span>
+                <span className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-red-600 text-white text-xs font-bold flex items-center justify-center border-2 border-background animate-pulse">
+                    {cartCount}
+                </span>
+            </button>
+        )}
 
         {/* Bottom Nav for mobile */}
         <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-lg border-t border-surface-light shadow-lg z-30">
