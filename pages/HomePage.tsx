@@ -51,8 +51,8 @@ const HomePage: React.FC = () => {
     return (
         <>
         <div className="min-h-screen w-full flex flex-col items-center justify-center bg-background text-textPrimary overflow-hidden p-4">
-            <DynamicBackground />
-            <div className="absolute inset-0 z-10 bg-black/50"></div>
+            <DynamicBackground gradientClassName="bg-home-violet-gradient" />
+            <div className="absolute inset-0 z-10 bg-background/60"></div>
 
             {/* Adjusted SVG characters for better responsiveness */}
             <div aria-hidden="true" className="absolute top-1/4 left-5 sm:left-10 opacity-70 w-20 h-20 sm:w-24 sm:h-24 hidden md:block animate-float" style={{animationDuration: '7s'}}>
