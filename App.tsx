@@ -7,6 +7,7 @@ import { Role } from './types';
 import LoadingScreen from './components/common/LoadingScreen';
 
 // Common pages
+import HomePage from './pages/HomePage';
 import LoginCustomerPage from './pages/LoginStudentPage';
 import RegisterCustomerPage from './pages/RegisterStudentPage';
 import LoginOwnerPage from './pages/LoginOwnerPage';
@@ -82,9 +83,9 @@ const AppRoutes = () => {
         return <LoadingScreen />;
     }
     
-    const HomeRedirect = () => {
+    const RootRedirect = () => {
         if (!user) {
-            return <Navigate to="/login-customer" replace />;
+            return <HomePage />;
         }
 
         switch (user.role) {
@@ -100,13 +101,13 @@ const AppRoutes = () => {
             case Role.ADMIN:
                 return <Navigate to="/admin/dashboard" replace />;
             default:
-                return <Navigate to="/login-customer" replace />;
+                return <HomePage />;
         }
     };
 
     return (
         <Routes>
-            <Route path="/" element={<HomeRedirect />} />
+            <Route path="/" element={<RootRedirect />} />
             
             {/* Public routes accessible without login */}
             <Route path="/login-customer" element={user ? <Navigate to="/" replace /> : <LoginCustomerPage />} />
