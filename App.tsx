@@ -1,33 +1,26 @@
-
-
-import React, { useEffect } from 'react';
-import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Role } from './types';
 import LoadingScreen from './components/common/LoadingScreen';
 
 // Common pages
 import HomePage from './pages/HomePage';
-import LoginCustomerPage from './pages/LoginStudentPage';
-import RegisterCustomerPage from './pages/RegisterStudentPage';
 import LoginOwnerPage from './pages/LoginOwnerPage';
 import RegisterOwnerPage from './pages/RegisterOwnerPage';
 import NotFoundPage from './pages/NotFoundPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import TermsAndConditionsPage from './pages/TermsAndConditionsPage';
 
-// Customer pages
-import WelcomePage from './pages/student/WelcomePage';
+// Simplified Customer pages
 import CustomerLayout from './pages/student/StudentLayout';
 import MenuPage from './pages/student/MenuPage';
 import FoodDetailPage from './pages/student/FoodDetailPage';
 import CartPage from './pages/student/CartPage';
 import OrderSuccessPage from './pages/student/OrderSuccessPage';
 import OrderHistoryPage from './pages/student/OrderHistoryPage';
-import FeedbackPage from './pages/student/FeedbackPage';
-import CouponsPage from './pages/student/CouponsPage';
-import ProfilePage from './pages/student/ProfilePage';
-import RewardsPage from './pages/student/RewardsPage';
+import StudentFeedbackPage from './pages/student/FeedbackPage';
+import FavouritesPage from './pages/student/FavouritesPage';
+
 
 // Canteen Owner pages
 import OwnerLayout from './pages/owner/OwnerLayout';
@@ -38,8 +31,6 @@ import RewardsManagementPage from './pages/owner/RewardsManagementPage';
 import DailySpecialsPage from './pages/owner/DailySpecialsPage';
 import OwnerFeedbackPage from './pages/owner/FeedbackPage';
 import OffersPage from './pages/owner/OffersPage';
-import ScanApprovalPage from './pages/owner/ScanApprovalPage';
-import ScanOnlyPage from './pages/owner/ScanOnlyPage';
 import ScanTerminalLoginPage from './pages/owner/ScanTerminalLoginPage';
 import ScanTerminalHomePage from './pages/owner/ScanTerminalHomePage';
 
@@ -61,7 +52,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
   }
 
   if (!user) {
-    return <Navigate to="/login-customer" replace />;
+    // If no user, redirect to owner login as customer flow is public.
+    return <Navigate to="/login-owner" replace />;
   }
 
   if (!allowedRoles.includes(user.role)) {
@@ -83,65 +75,50 @@ const AppRoutes = () => {
         return <LoadingScreen />;
     }
     
-    const RootRedirect = () => {
-        if (!user) {
-            return <HomePage />;
+    // This component now only redirects logged-in owners/admins
+    const OwnerOrAdminRedirect = () => {
+        if (user) {
+            switch (user.role) {
+                case Role.CANTEEN_OWNER:
+                    if (user.approvalStatus !== 'approved') {
+                        return <LoginOwnerPage />;
+                    }
+                    return user.canteenName
+                        ? <Navigate to="/owner/dashboard" replace />
+                        : <Navigate to="/scan-terminal/home" replace />;
+                case Role.ADMIN:
+                    return <Navigate to="/admin/dashboard" replace />;
+                default:
+                     return <HomePage />;
+            }
         }
-
-        switch (user.role) {
-            case Role.STUDENT:
-                return <Navigate to="/customer/menu" replace />;
-            case Role.CANTEEN_OWNER:
-                if (user.approvalStatus !== 'approved') {
-                    return <Navigate to="/login-owner" replace />;
-                }
-                return user.canteenName
-                    ? <Navigate to="/owner/dashboard" replace />
-                    : <Navigate to="/scan-terminal/home" replace />;
-            case Role.ADMIN:
-                return <Navigate to="/admin/dashboard" replace />;
-            default:
-                return <HomePage />;
-        }
+        // If not a logged-in owner/admin, show the home page.
+        return <HomePage />;
     };
 
     return (
         <Routes>
-            <Route path="/" element={<RootRedirect />} />
+            <Route path="/" element={<OwnerOrAdminRedirect />} />
             
-            {/* Public routes accessible without login */}
-            <Route path="/login-customer" element={user ? <Navigate to="/" replace /> : <LoginCustomerPage />} />
-            <Route path="/register-customer" element={user ? <Navigate to="/" replace /> : <RegisterCustomerPage />} />
+            {/* New Public Customer Routes */}
+            <Route element={<CustomerLayout />}>
+                <Route path="/menu" element={<MenuPage />} />
+                <Route path="/menu/:itemId" element={<FoodDetailPage />} />
+                <Route path="/favourites" element={<FavouritesPage />} />
+                <Route path="/cart" element={<CartPage />} />
+                <Route path="/order-success/:orderId" element={<OrderSuccessPage />} />
+                <Route path="/history" element={<OrderHistoryPage />} />
+                <Route path="/feedback" element={<StudentFeedbackPage />} />
+            </Route>
+            
+            {/* Public Owner/Admin Login/Register */}
             <Route path="/login-owner" element={user ? <Navigate to="/" replace /> : <LoginOwnerPage />} />
             <Route path="/register-owner" element={user ? <Navigate to="/" replace /> : <RegisterOwnerPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/terms" element={<TermsAndConditionsPage />} />
             <Route path="/owner/scan-terminal" element={user ? <Navigate to="/" replace /> : <ScanTerminalLoginPage />} />
 
-            {/* Customer Routes */}
-            <Route path="/customer/welcome" element={
-                <ProtectedRoute allowedRoles={[Role.STUDENT]}>
-                    <WelcomePage />
-                </ProtectedRoute>
-            } />
-            <Route path="/customer" element={
-                <ProtectedRoute allowedRoles={[Role.STUDENT]}>
-                    <CustomerLayout />
-                </ProtectedRoute>
-            }>
-                <Route index element={<Navigate to="menu" replace />} />
-                <Route path="menu" element={<MenuPage />} />
-                <Route path="menu/:itemId" element={<FoodDetailPage />} />
-                <Route path="cart" element={<CartPage />} />
-                <Route path="order-success/:orderId" element={<OrderSuccessPage />} />
-                <Route path="history" element={<OrderHistoryPage />} />
-                <Route path="coupons" element={<CouponsPage />} />
-                <Route path="rewards" element={<RewardsPage />} />
-                <Route path="feedback" element={<FeedbackPage />} />
-                <Route path="profile" element={<ProfilePage />} />
-            </Route>
 
-            {/* Canteen Owner Routes */}
+            {/* Canteen Owner Routes (Protected) */}
             <Route path="/owner" element={
                 <ProtectedRoute allowedRoles={[Role.CANTEEN_OWNER]}>
                     <OwnerLayout />
@@ -157,14 +134,14 @@ const AppRoutes = () => {
                 <Route path="offers" element={<OffersPage />} />
             </Route>
             
-            {/* Standalone Scan Terminal page */}
+            {/* Standalone Scan Terminal page (Protected) */}
             <Route path="/scan-terminal/home" element={
                  <ProtectedRoute allowedRoles={[Role.CANTEEN_OWNER]}>
                     <ScanTerminalHomePage />
                 </ProtectedRoute>
             } />
             
-            {/* Admin Routes */}
+            {/* Admin Routes (Protected) */}
             <Route path="/admin/dashboard" element={
                  <ProtectedRoute allowedRoles={[Role.ADMIN]}>
                     <AdminDashboard />

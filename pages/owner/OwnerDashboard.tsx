@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import type { Order, MenuItem, SalesSummary, StudentPoints, TodaysDashboardStats, User } from '../../types';
@@ -8,7 +7,6 @@ import {
     getMostSellingItems, getOrderStatusSummary, getStudentPointsList, getTodaysDashboardStats, getTodaysDetailedReport,
     getScanTerminalStaff, deleteScanTerminalStaff
 } from '../../services/mockApi';
-import { supabase } from '../../services/supabase';
 import { useAuth } from '../../context/AuthContext';
 
 // For xlsx library loaded from CDN
@@ -394,16 +392,9 @@ export const OwnerDashboard: React.FC = () => {
                 }
             }
             
-            // Combine scan-only staff with the main owner for the leaderboard map
             const allScanners = user ? [...staffData, user] : staffData;
             
-            // WORKAROUND: Use the same numeric ID logic as in verifyQrCodeAndCollectOrder.
-            // The `collected_by_staff_id` is stored as an integer, so we map users by a derived integer ID.
-            const staffMap = new Map(allScanners.map(s => {
-                // This logic must match the one in `verifyQrCodeAndCollectOrder`
-                const numericId = parseInt(s.id.split('-')[0], 16);
-                return [String(numericId), s.username];
-            }));
+            const staffMap = new Map(allScanners.map(s => [s.id, s.username]));
 
             const leaderboard = Object.entries(scanCounts)
                 .map(([staffId, count]) => ({ name: staffMap.get(staffId) || 'Unknown Staff', count }))
@@ -422,20 +413,6 @@ export const OwnerDashboard: React.FC = () => {
         setLoading(true);
         fetchData();
     }, [fetchData]);
-    
-    useEffect(() => {
-        const channel = supabase
-            .channel('public:orders')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, payload => {
-                console.log('Order change received!', payload);
-                fetchData();
-            })
-            .subscribe();
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [fetchData]);
-
 
     const handleAvailabilityChange = async (itemId: string, isAvailable: boolean) => {
         try {

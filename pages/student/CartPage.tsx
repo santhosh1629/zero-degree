@@ -1,10 +1,7 @@
-
-
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { CartItem, Offer } from '../../types';
-import { useAuth } from '../../context/AuthContext';
-import { placeOrder, getOffers, createPaymentRecord } from '../../services/mockApi';
+import type { CartItem } from '../../types';
+import { placeOrder, createPaymentRecord } from '../../services/mockApi';
 
 declare const Razorpay: any;
 
@@ -19,36 +16,13 @@ const saveCartToStorage = (cart: CartItem[]) => {
 
 const CartPage: React.FC = () => {
     const [cart, setCart] = useState<CartItem[]>(getCartFromStorage());
-    const [appliedCoupon, setAppliedCoupon] = useState<Offer | null>(null);
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
-    const [toastMessage, setToastMessage] = useState('');
-    const toastTimerRef = useRef<number | null>(null);
-    const [availableOffers, setAvailableOffers] = useState<Offer[]>([]);
-
-    const { user } = useAuth();
+    const [phone, setPhone] = useState('');
+    const [seatNumber, setSeatNumber] = useState('');
+    const [formError, setFormError] = useState('');
     const navigate = useNavigate();
     
-    useEffect(() => {
-        return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
-    }, []);
-
-    useEffect(() => {
-        const fetchOffers = async () => {
-            if (user) {
-                try {
-                    const offers = await getOffers(user.id);
-                    setAvailableOffers(offers);
-                } catch (error) { console.error("Failed to fetch available offers", error); }
-            }
-        };
-        fetchOffers();
-    }, [user]);
-
     const updateCart = (newCart: CartItem[]) => {
-        if (appliedCoupon) {
-            const subtotal = newCart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-            if (subtotal === 0) setAppliedCoupon(null);
-        }
         setCart(newCart);
         saveCartToStorage(newCart);
         window.dispatchEvent(new CustomEvent('cartUpdated'));
@@ -63,49 +37,26 @@ const CartPage: React.FC = () => {
     
     const handleNotesChange = (itemId: string, notes: string) => updateCart(cart.map(item => item.id === itemId ? { ...item, notes } : item));
     
-    const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
-    
-    const discountAmount = useMemo(() => {
-        if (!appliedCoupon) return 0;
-        let discount = appliedCoupon.discountType === 'fixed' ? appliedCoupon.discountValue : subtotal * (appliedCoupon.discountValue / 100);
-        return Math.min(discount, subtotal);
-    }, [subtotal, appliedCoupon]);
-
-    const totalAmount = useMemo(() => Math.max(0, subtotal - discountAmount), [subtotal, discountAmount]);
-
-    const handleApplyCoupon = (offer: Offer) => {
-        setAppliedCoupon(offer);
-        let newDiscount = offer.discountType === 'fixed' ? offer.discountValue : subtotal * (offer.discountValue / 100);
-        setToastMessage(`🎉 Congratulations! You saved ₹${Math.min(newDiscount, subtotal).toFixed(2)}`);
-        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-        toastTimerRef.current = window.setTimeout(() => setToastMessage(''), 3000);
-    };
-    
-    const handleRemoveCoupon = () => {
-        setAppliedCoupon(null);
-        setToastMessage('');
-        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    }
+    const totalAmount = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
 
     const handleRealOrderPlacement = async (paymentId: string) => {
-        if (!user) return;
         try {
             const orderPayload = {
-                studentId: user.id, studentName: user.username,
                 items: cart.map(({ id, name, quantity, price, notes, imageUrl }) => ({ id, name, quantity, price, notes, imageUrl })),
-                totalAmount, couponCode: appliedCoupon?.code, discountAmount,
+                totalAmount,
+                phone,
+                seatNumber,
             };
             const order = await placeOrder(orderPayload);
             await createPaymentRecord({
                 order_id: order.id,
-                student_id: user.id,
                 amount: totalAmount,
                 method: 'Razorpay',
                 status: 'successful',
                 transaction_id: paymentId,
             });
             updateCart([]);
-            navigate(`/customer/order-success/${order.id}`, { state: { showSuccessToast: true } });
+            navigate(`/order-success/${order.id}`, { state: { showSuccessToast: true } });
         } catch (error) {
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: (error as Error).message, type: 'payment-error' } }));
             setIsPlacingOrder(false);
@@ -113,9 +64,19 @@ const CartPage: React.FC = () => {
     };
     
     const handlePayment = () => {
+        setFormError('');
+        if (!/^\d{10}$/.test(phone)) {
+            setFormError("Please enter a valid 10-digit phone number.");
+            return;
+        }
+        if (!seatNumber.trim()) {
+            setFormError("Please enter your seat number.");
+            return;
+        }
+
         setIsPlacingOrder(true);
         const options = {
-            key: 'rzp_test_1DP5mmOlF5G5ag', // Public test key, replace with your own in production
+            key: 'rzp_test_1DP5mmOlF5G5ag', // Public test key
             amount: totalAmount * 100, // Amount in paise
             currency: "INR",
             name: "Sangeetha Cinemas",
@@ -125,9 +86,7 @@ const CartPage: React.FC = () => {
                 handleRealOrderPlacement(response.razorpay_payment_id);
             },
             prefill: {
-                name: user?.username || 'Valued Customer',
-                email: user?.email || '',
-                contact: user?.phone || '',
+                contact: phone,
             },
             theme: {
                 color: "#A78BFA",
@@ -151,7 +110,6 @@ const CartPage: React.FC = () => {
 
     return (
         <div className="text-textPrimary">
-             <style>{`.confetti { position: absolute; width: 8px; height: 8px; background-color: #fff; border-radius: 50%; opacity: 0; animation: confetti-pop 0.8s ease-out forwards; } .confetti:nth-child(odd) { background-color: #fbb_f24; }`}</style>
             <h1 className="text-3xl font-bold font-heading mb-6" style={{textShadow: '0 2px 4px rgba(0,0,0,0.5)'}}>
                 Your Cart 🛒
             </h1>
@@ -190,43 +148,35 @@ const CartPage: React.FC = () => {
                     </div>
 
                     <div className="bg-surface/50 backdrop-blur-lg border border-surface-light rounded-lg p-6 h-fit sticky top-24 shadow-xl">
-                        {toastMessage && (
-                            <div
-                                className="relative bg-green-500/90 text-white font-semibold p-4 rounded-lg shadow-lg mb-4 text-center overflow-hidden animate-fade-in-down cursor-pointer"
-                                onClick={() => setToastMessage('')}
-                            >
-                                <span className="confetti" style={{ left: '10%', top: '50%', animationDelay: '0s' }}></span>
-                                <span className="confetti" style={{ left: '90%', top: '50%', animationDelay: '0.4s' }}></span>
-                                {toastMessage}
-                            </div>
-                        )}
-
-                        <h2 className="text-2xl font-bold font-heading mb-4">Summary</h2>
+                        <h2 className="text-2xl font-bold font-heading mb-4">Order Details</h2>
                         
-                        <>
-                            <div className="mb-4 pt-4 border-t border-white/20">
-                                <h3 className="font-semibold text-white/90 mb-2">Apply a Coupon</h3>
-                                {availableOffers.length > 0 ? (
-                                    <div className="space-y-2 max-h-40 overflow-y-auto pr-2 scrollbar-thin">
-                                        {availableOffers.map(offer => (
-                                            <label key={offer.id} className={`flex items-center p-3 rounded-lg cursor-pointer transition-colors ${appliedCoupon?.id === offer.id ? 'bg-primary/30 border border-primary' : 'bg-black/30 hover:bg-white/10 border border-transparent'}`}>
-                                                <input type="radio" name="coupon" checked={appliedCoupon?.id === offer.id} onChange={() => handleApplyCoupon(offer)} className="form-radio h-4 w-4 bg-gray-600 border-gray-500 text-primary focus:ring-primary"/>
-                                                <div className="ml-3 text-sm flex-grow"><p className="font-mono font-bold text-primary">{offer.code}</p><p className="text-xs text-white/70">{offer.description}</p></div>
-                                            </label>
-                                        ))}
-                                    </div>
-                                ) : ( <p className="text-sm text-white/70 bg-black/20 p-3 rounded-md">You have no available coupons.</p> )}
-                                {appliedCoupon && ( <div className="mt-2 text-right"><button onClick={handleRemoveCoupon} className="text-xs text-red-400 hover:underline font-semibold">Remove Coupon</button></div> )}
+                        <div className="space-y-4 mb-6">
+                             <div>
+                                <label className="block text-textSecondary font-semibold mb-2" htmlFor="phone">
+                                    Phone Number *
+                                </label>
+                                <input type="tel" id="phone" value={phone} onChange={(e) => setPhone(e.target.value)}
+                                    className="w-full px-4 py-3 bg-black/30 border-b-2 border-white/20 text-textPrimary rounded-lg focus:outline-none focus:border-primary transition-all placeholder:text-white/40"
+                                    placeholder="For order updates" required />
                             </div>
-                            <div className="space-y-2 border-t border-white/20 pt-4">
-                                <div className="flex justify-between"><span>Subtotal</span><span>₹{subtotal.toFixed(2)}</span></div>
-                                {appliedCoupon && ( <div className="flex justify-between text-green-400"><span>Discount ({appliedCoupon.code})</span><span>- ₹{discountAmount.toFixed(2)}</span></div> )}
-                                <div className="flex justify-between font-bold font-heading text-xl pt-2 mt-2 border-t border-white/20"><span>Total</span><span>₹{totalAmount.toFixed(2)}</span></div>
+                             <div>
+                                <label className="block text-textSecondary font-semibold mb-2" htmlFor="seatNumber">
+                                    Seat Number *
+                                </label>
+                                <input type="text" id="seatNumber" value={seatNumber} onChange={(e) => setSeatNumber(e.target.value)}
+                                    className="w-full px-4 py-3 bg-black/30 border-b-2 border-white/20 text-textPrimary rounded-lg focus:outline-none focus:border-primary transition-all placeholder:text-white/40"
+                                    placeholder="e.g., H12" required />
                             </div>
-                            <button onClick={handlePayment} disabled={isPlacingOrder} className="w-full mt-6 bg-primary text-background font-bold font-heading py-3 px-4 rounded-lg hover:bg-primary-dark transition-colors shadow-lg hover:shadow-primary/50 disabled:bg-primary/50 disabled:cursor-wait">
-                                {isPlacingOrder ? 'Processing...' : 'Proceed to Pay'}
-                            </button>
-                        </>
+                        </div>
+                        {formError && <p className="text-red-400 text-sm text-center mb-4">{formError}</p>}
+
+                        <div className="space-y-2 border-t border-white/20 pt-4">
+                            <div className="flex justify-between"><span>Subtotal</span><span>₹{totalAmount.toFixed(2)}</span></div>
+                            <div className="flex justify-between font-bold font-heading text-xl pt-2 mt-2 border-t border-white/20"><span>Total</span><span>₹{totalAmount.toFixed(2)}</span></div>
+                        </div>
+                        <button onClick={handlePayment} disabled={isPlacingOrder || !phone || !seatNumber} className="w-full mt-6 bg-primary text-background font-bold font-heading py-3 px-4 rounded-lg hover:bg-primary-dark transition-colors shadow-lg hover:shadow-primary/50 disabled:bg-primary/50 disabled:cursor-not-allowed">
+                            {isPlacingOrder ? 'Processing...' : 'Proceed to Pay'}
+                        </button>
                     </div>
                 </div>
             )}

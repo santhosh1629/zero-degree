@@ -1,5 +1,3 @@
-
-
 export enum Role {
   STUDENT = 'STUDENT',
   CANTEEN_OWNER = 'CANTEEN_OWNER',
@@ -64,9 +62,10 @@ export enum OrderStatus {
 
 export interface Order {
   id: string;
-  studentId: string;
-  studentName: string;
-  customerPhone?: string;
+  studentId?: string;
+  studentName?: string;
+  customerPhone: string;
+  seatNumber: string;
   items: {
     id: string;
     name: string;
@@ -88,7 +87,6 @@ export interface Order {
   pointsSpent?: number;
   refundAmount?: number;
   collectedByStaffId?: string;
-  seatNumber?: string;
 }
 
 export interface SalesSummary {
@@ -121,17 +119,6 @@ export interface Offer {
     redeemedCount?: number; // How many times it has been used
 }
 
-export interface StudentProfile {
-  id: string;
-  name: string;
-  phone: string;
-  totalOrders: number;
-  lifetimeSpend: number;
-  milestoneRewardsUnlocked: number[]; // e.g., [200, 500] for unlocked milestones
-  favoriteItemsCount: number;
-  loyaltyPoints: number;
-}
-
 export interface Reward {
     id: string;
     title: string;
@@ -143,6 +130,18 @@ export interface Reward {
     };
     isActive: boolean;
     expiryDate?: string; // ISO string date format
+}
+
+// Fix: Add StudentProfile interface to fix missing type error.
+export interface StudentProfile {
+  id: string;
+  name: string;
+  phone: string;
+  loyaltyPoints: number;
+  totalOrders: number;
+  lifetimeSpend: number;
+  favoriteItemsCount: number;
+  milestoneRewardsUnlocked: number[];
 }
 
 export interface StudentPoints {

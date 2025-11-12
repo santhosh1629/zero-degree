@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getMenuItemById, getFeedbacks } from '../../services/mockApi';
+import { getMenuItemById, getFeedbacks, isFavourited, toggleFavourite } from '../../services/mockApi';
 import { useAuth } from '../../context/AuthContext';
 import type { MenuItem, Feedback, CartItem } from '../../types';
 
@@ -38,6 +37,8 @@ const FoodDetailPage: React.FC = () => {
     const [reviews, setReviews] = useState<Feedback[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'description' | 'reviews'>('description');
+    const [isFav, setIsFav] = useState(false);
+
 
     useEffect(() => {
         const fetchData = async () => {
@@ -55,6 +56,7 @@ const FoodDetailPage: React.FC = () => {
                 if (itemData) {
                     setItem(itemData);
                     setReviews(allReviews.filter(r => r.itemId === itemId));
+                    setIsFav(isFavourited(itemData.id));
                 } else {
                      navigate('/404');
                 }
@@ -86,6 +88,12 @@ const FoodDetailPage: React.FC = () => {
         window.dispatchEvent(new CustomEvent('itemAddedToCart'));
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: '✅ Item Added to Cart', type: 'cart-add' } }));
     }, [item]);
+    
+    const handleFavouriteToggle = () => {
+        if (!item) return;
+        const newState = toggleFavourite(item.id);
+        setIsFav(newState);
+    };
 
 
     if (loading) {
@@ -112,7 +120,14 @@ const FoodDetailPage: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <img src={item.imageUrl} alt={item.name} className="w-full h-80 object-cover rounded-lg shadow-lg"/>
                         <div>
-                            <h1 className="text-3xl sm:text-4xl font-extrabold">{item.emoji} {item.name}</h1>
+                            <div className="flex items-start justify-between gap-4">
+                                <h1 className="text-3xl sm:text-4xl font-extrabold flex-grow">{item.emoji} {item.name}</h1>
+                                <button onClick={handleFavouriteToggle} className={`transition-transform duration-200 hover:scale-125 active:scale-95 flex-shrink-0 ${isFav ? 'text-red-500 animate-heart-pop' : 'text-gray-400'}`} aria-label="Add to favourites">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                                    </svg>
+                                </button>
+                            </div>
                             {item.averageRating != null && (
                                 <div className="mt-2">
                                     <StarDisplay rating={item.averageRating} reviewCount={reviews.length} />

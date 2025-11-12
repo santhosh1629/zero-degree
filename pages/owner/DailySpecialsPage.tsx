@@ -94,6 +94,10 @@ const DailySpecialsPage: React.FC = () => {
     const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
     const [formData, setFormData] = useState<FormState>(initialFormState);
     const { user } = useAuth();
+
+    // State for deletion flow
+    const [itemToDelete, setItemToDelete] = useState<MenuItem | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
     
     const [isProcessingImage, setIsProcessingImage] = useState(false);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -220,17 +224,30 @@ const DailySpecialsPage: React.FC = () => {
 
         } catch (error) { console.error("Failed to save menu item", error); }
     };
-    
-    const handleDelete = async (itemId: string) => {
-        if (window.confirm("Are you sure you want to delete this menu item?")) {
-            try { 
-                await removeMenuItem(itemId); 
-                fetchMenu();
-                window.dispatchEvent(new CustomEvent('show-owner-toast', { detail: { message: 'Item deleted.' } }));
-            } 
-            catch (error) { console.error("Failed to delete menu item", error); }
+
+    const handleDeleteClick = (itemId: string) => {
+        const item = menuItems.find(i => i.id === itemId);
+        if (item) {
+            setItemToDelete(item);
         }
-    }
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!itemToDelete) return;
+
+        setIsDeleting(true);
+        try {
+            await removeMenuItem(itemToDelete.id);
+            setMenuItems(prevItems => prevItems.filter(item => item.id !== itemToDelete.id));
+            window.dispatchEvent(new CustomEvent('show-owner-toast', { detail: { message: 'Item deleted successfully' } }));
+            setItemToDelete(null); // Close modal on success
+        } catch (error) {
+            console.error("Failed to delete menu item", error);
+            window.dispatchEvent(new CustomEvent('show-owner-toast', { detail: { message: 'Error: Could not delete item.' } }));
+        } finally {
+            setIsDeleting(false);
+        }
+    };
     
     if (loading) return <p className="text-gray-300">Loading menu...</p>;
 
@@ -247,10 +264,38 @@ const DailySpecialsPage: React.FC = () => {
                         key={item.id} 
                         item={item}
                         onEdit={handleOpenModal}
-                        onDelete={handleDelete}
+                        onDelete={handleDeleteClick}
                     />
                 ))}
             </div>
+
+            {/* Delete Confirmation Modal */}
+            {itemToDelete && (
+                <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
+                    <div className="bg-gray-800 border border-gray-700 p-8 rounded-lg shadow-xl w-full max-w-sm animate-fade-in-down">
+                        <h2 className="text-xl font-bold mb-4 text-center text-white">Confirm Deletion</h2>
+                        <p className="text-center text-gray-300 mb-6">
+                            Are you sure you want to delete the item "{itemToDelete.name}"? This action cannot be undone.
+                        </p>
+                        <div className="flex justify-center gap-4">
+                            <button 
+                                onClick={() => setItemToDelete(null)} 
+                                disabled={isDeleting}
+                                className="bg-gray-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-500 transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleConfirmDelete} 
+                                disabled={isDeleting}
+                                className="bg-red-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700 transition-colors disabled:bg-red-500/50 disabled:cursor-wait"
+                            >
+                                {isDeleting ? 'Deleting...' : 'Delete'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
