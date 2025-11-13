@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { MenuItem, CartItem } from '../../types';
-import { getMenu, getOwnerStatus, isFavourited, toggleFavourite } from '../../services/mockApi';
+import type { MenuItem, CartItem, User } from '../../types';
+import { getMenu, toggleFavoriteItem, getOwnerStatus } from '../../services/mockApi';
+import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../services/supabase';
 
 declare const gsap: any;
 declare const ScrollTrigger: any;
@@ -82,25 +84,45 @@ const PromotionsBanner: React.FC<{ items: MenuItem[]; onCardClick: (item: MenuIt
 const MenuItemCard: React.FC<{ 
     item: MenuItem; 
     onCardClick: (itemId: string) => void;
+    onToggleFavorite: (itemId: string, isFavorited: boolean) => void;
     onAddToCart: (item: MenuItem) => void;
-}> = ({ item, onCardClick, onAddToCart }) => {
-    const { id, name, price, isAvailable, imageUrl, averageRating, emoji, isCombo } = item;
+}> = ({ item, onCardClick, onToggleFavorite, onAddToCart }) => {
+    const { id, name, price, isAvailable, imageUrl, averageRating, isFavorited, emoji, isCombo } = item;
     const [isAdding, setIsAdding] = useState(false);
-    const [isFav, setIsFav] = useState(() => isFavourited(item.id));
-
+    const [isAnimatingFavorite, setIsAnimatingFavorite] = useState(false);
+    const { user, promptForPhone } = useAuth();
 
     const handleAddToCartClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!isAvailable) return;
-        onAddToCart(item);
-        setIsAdding(true);
-        setTimeout(() => setIsAdding(false), 700); // Animation duration
+        const action = () => {
+            onAddToCart(item);
+            setIsAdding(true);
+            setTimeout(() => setIsAdding(false), 700); // Animation duration
+        };
+        
+        if (user) {
+            action();
+        } else {
+            promptForPhone(action);
+        }
     };
-    
-    const handleFavouriteToggle = (e: React.MouseEvent) => {
+
+    const handleFavoriteClick = (e: React.MouseEvent) => {
         e.stopPropagation();
-        const newState = toggleFavourite(item.id);
-        setIsFav(newState);
+        const action = () => {
+            if (!isFavorited) { // Animate only when adding
+                setIsAnimatingFavorite(true);
+                setTimeout(() => setIsAnimatingFavorite(false), 500);
+            }
+            onToggleFavorite(id, isFavorited ?? false);
+        };
+
+        if (user) {
+            action();
+        } else {
+            promptForPhone(action);
+        }
     };
     
     return (
@@ -113,6 +135,15 @@ const MenuItemCard: React.FC<{
                     </span>
                     {isCombo && <span className="text-xs font-bold px-2 py-1 rounded-full bg-primary/80 text-background backdrop-blur-sm">COMBO</span>}
                 </div>
+                <button 
+                    onClick={handleFavoriteClick}
+                    className="absolute top-2 right-2 bg-black/30 backdrop-blur-sm p-2 rounded-full text-2xl transition-transform hover:scale-125 active:scale-90"
+                    aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+                >
+                    <span className={isAnimatingFavorite ? 'animate-heart-pop block' : 'block'}>
+                        {isFavorited ? '❤️' : '🤍'}
+                    </span>
+                </button>
                 {!isAvailable && (
                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                         <span className="text-white font-bold font-heading text-lg">Unavailable</span>
@@ -123,12 +154,7 @@ const MenuItemCard: React.FC<{
                 <h3 className="font-bold font-heading text-lg truncate">{emoji} {name}</h3>
                 <div className="flex justify-between items-center mt-2">
                     <p className="font-black font-heading text-primary text-xl">₹{price}</p>
-                    <div className="flex items-center gap-2">
-                        <button onClick={handleFavouriteToggle} className={`transition-transform duration-200 hover:scale-125 active:scale-95 ${isFav ? 'text-red-500 animate-heart-pop' : 'text-gray-400'}`} aria-label="Add to favourites">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-                            </svg>
-                        </button>
+                    <div className="flex items-center gap-3">
                         {averageRating != null && (
                              <div className="flex items-center gap-1">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-400" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588 1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
@@ -158,6 +184,7 @@ const MenuPage: React.FC = () => {
     const [filteredMenu, setFilteredMenu] = useState<MenuItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
     const [isCanteenOnline, setIsCanteenOnline] = useState(true);
     const [showPermissionBanner, setShowPermissionBanner] = useState(false);
     
@@ -167,6 +194,7 @@ const MenuPage: React.FC = () => {
     const touchStartRef = useRef<number | null>(null);
     const PULL_THRESHOLD = 80;
 
+    const { user } = useAuth();
     const navigate = useNavigate();
     const menuGridRef = useRef<HTMLDivElement>(null);
 
@@ -186,7 +214,7 @@ const MenuPage: React.FC = () => {
     const fetchPageData = useCallback(async () => {
         try {
             const [menuItems, ownerStatus] = await Promise.all([
-                getMenu(),
+                getMenu(user?.id),
                 getOwnerStatus()
             ]);
             setMenu(menuItems);
@@ -194,7 +222,7 @@ const MenuPage: React.FC = () => {
         } catch (error) {
             console.error("Failed to fetch page data", error);
         }
-    }, []);
+    }, [user]);
 
     // Pull-to-refresh logic
     useEffect(() => {
@@ -252,16 +280,31 @@ const MenuPage: React.FC = () => {
             setLoading(false);
         };
         initialFetch();
+        
+        const channel = supabase
+            .channel('public:menu')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'menu' }, (payload) => {
+                console.log('Menu change received!', payload);
+                fetchPageData(); // Refetch data on any change
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [fetchPageData]);
 
 
     useEffect(() => {
         let items = [...menu];
+        if (showFavoritesOnly) {
+            items = items.filter(item => item.isFavorited);
+        }
         if (searchTerm) {
             items = items.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()));
         }
         setFilteredMenu(items);
-    }, [menu, searchTerm]);
+    }, [menu, searchTerm, showFavoritesOnly]);
 
     // GSAP Scroll Animation Effect
     useEffect(() => {
@@ -304,8 +347,23 @@ const MenuPage: React.FC = () => {
     }, [loading, filteredMenu]);
 
     const handleCardClick = useCallback((item: MenuItem, element: HTMLElement) => {
-        navigate(`/menu/${item.id}`);
+        navigate(`/customer/menu/${item.id}`);
     }, [navigate]);
+
+    const handleToggleFavorite = useCallback(async (itemId: string, isFavorited: boolean) => {
+        if (!user) return; // Should be handled by card, but defensive check
+        
+        // Optimistic UI update
+        setMenu(prev => prev.map(item => item.id === itemId ? { ...item, isFavorited: !isFavorited, favoriteCount: (item.favoriteCount || 0) + (!isFavorited ? 1 : -1) } : item));
+        
+        try {
+            await toggleFavoriteItem(user.id, itemId);
+        } catch (error) {
+            console.error("Failed to toggle favorite", error);
+            // Revert on error
+            setMenu(prev => prev.map(item => item.id === itemId ? { ...item, isFavorited: isFavorited, favoriteCount: (item.favoriteCount || 0) + (isFavorited ? 1 : -1) } : item));
+        }
+    }, [user]);
 
     const handleAddToCart = useCallback((item: MenuItem) => {
         const cart = getCartFromStorage();
@@ -321,11 +379,13 @@ const MenuPage: React.FC = () => {
         }
         saveCartToStorage(newCart);
 
+        // Dispatch events for UI feedback
         window.dispatchEvent(new CustomEvent('itemAddedToCart'));
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Item Added to Cart!', type: 'cart-add' } }));
     }, []);
 
     const promotedItems = useMemo(() => {
+        // Simple promotion logic: highest rated available items
         return menu
             .filter(item => item.isAvailable)
             .sort((a, b) => (b.averageRating ?? 0) - (a.averageRating ?? 0))
@@ -335,7 +395,7 @@ const MenuPage: React.FC = () => {
     return (
         <div>
             {/* Pull-to-refresh indicator */}
-            <div style={{ transform: `translateY(${Math.min(pullPosition, PULL_THRESHOLD)}px)`, transition: isRefreshing || pullPosition === 0 ? 'transform 0.3s' : 'none' }} className="fixed top-0 left-0 right-0 z-20 flex justify-center items-center pt-2 pb-4 text-white">
+            <div style={{ transform: `translateY(${Math.min(pullPosition, PULL_THRESHOLD)}px)`, transition: isRefreshing || pullPosition === 0 ? 'transform 0.3s' : 'none' }} className="fixed top-16 left-0 right-0 z-20 flex justify-center items-center pt-2 pb-4 text-white">
                 <div className="bg-surface/50 backdrop-blur-lg p-2 rounded-full shadow-lg">
                     {isRefreshing ? (
                         <svg className="animate-spin h-6 w-6 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -366,19 +426,19 @@ const MenuPage: React.FC = () => {
             <>
             <PromotionsBanner items={promotedItems} onCardClick={handleCardClick} />
 
-            <div className="flex items-center gap-4 mb-6 sticky top-0 z-20 bg-background/80 backdrop-blur-md py-4 -mx-4 px-4">
+            <div className="flex flex-col sm:flex-row gap-4 mb-6 sticky top-16 z-20 bg-background/80 backdrop-blur-md py-4 -mx-4 px-4">
                 <input
                     type="text"
                     placeholder="Search for food..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="flex-grow px-4 py-2 bg-surface/80 border border-surface-light text-textPrimary rounded-full focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-textSecondary/70"
+                    className="w-full sm:flex-grow px-4 py-2 bg-surface/80 border border-surface-light text-textPrimary rounded-full focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-textSecondary/70"
                 />
-                <button onClick={() => navigate('/favourites')} className="flex-shrink-0 p-2.5 bg-surface/80 border border-surface-light rounded-full text-red-400 hover:bg-surface-light/50 transition-colors" aria-label="View Favourites">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-                    </svg>
-                </button>
+                <div className="flex items-center justify-center">
+                    <button onClick={() => setShowFavoritesOnly(!showFavoritesOnly)} className={`flex items-center gap-2 px-4 py-2 rounded-full font-semibold transition-colors text-sm ${showFavoritesOnly ? 'bg-primary text-background' : 'bg-surface/80 text-textSecondary hover:bg-surface-light'}`}>
+                        {showFavoritesOnly ? '❤️ Favorites' : '🤍 Show Favorites'}
+                    </button>
+                </div>
             </div>
 
             {filteredMenu.length > 0 ? (
@@ -387,7 +447,8 @@ const MenuPage: React.FC = () => {
                         <MenuItemCard 
                             key={item.id} 
                             item={item} 
-                            onCardClick={() => navigate(`/menu/${item.id}`)}
+                            onCardClick={() => navigate(`/customer/menu/${item.id}`)}
+                            onToggleFavorite={handleToggleFavorite}
                             onAddToCart={handleAddToCart}
                         />
                     ))}

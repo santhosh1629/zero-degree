@@ -3,12 +3,15 @@ import { useParams, useLocation } from 'react-router-dom';
 import { QRCodeSVG as QRCode } from 'qrcode.react';
 import type { Order } from '../../types';
 import { OrderStatus } from '../../types';
-import { getOrderById } from '../../services/mockApi';
+import { getOrderById, updateOrderSeatNumber } from '../../services/mockApi';
+import { supabase } from '../../services/supabase';
 
 const OrderSuccessPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [seatNumber, setSeatNumber] = useState('');
+  const [seatSubmitted, setSeatSubmitted] = useState(false);
   const location = useLocation();
   const [currentStatus, setCurrentStatus] = useState<OrderStatus | null>(null);
 
@@ -25,25 +28,10 @@ const OrderSuccessPage: React.FC = () => {
           const orderData = await getOrderById(orderId);
           setOrder(orderData);
           setCurrentStatus(orderData.status);
-          
-          // Simulate order status updates for guest user
-          if (orderData.status === OrderStatus.PENDING) {
-              const prepTimeout = setTimeout(() => {
-                  setCurrentStatus(OrderStatus.PREPARED);
-                   window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Your order is ready for pickup!', type: 'coupon-success' } }));
-              }, 8000); // 8 seconds to prepared
-              
-              const collectTimeout = setTimeout(() => {
-                   setCurrentStatus(OrderStatus.COLLECTED);
-                   window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Order collected (simulated).', type: 'payment-success' } }));
-              }, 16000); // 16 seconds to collected
-
-              return () => {
-                  clearTimeout(prepTimeout);
-                  clearTimeout(collectTimeout);
-              }
+          if (orderData.seatNumber) {
+            setSeatNumber(orderData.seatNumber);
+            setSeatSubmitted(true);
           }
-
         } catch (error) {
           console.error("Failed to fetch order details", error);
         } finally {
@@ -53,8 +41,35 @@ const OrderSuccessPage: React.FC = () => {
     };
     fetchOrder();
 
+    const channel = supabase.channel(`public:orders:id=eq.${orderId}`);
+    channel
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` }, (payload) => {
+        const newStatus = payload.new.status as OrderStatus;
+        setCurrentStatus(newStatus);
+        if (newStatus === OrderStatus.COLLECTED) {
+            window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Your food is ready & collected!', type: 'payment-success' } }));
+        }
+      })
+      .subscribe();
+      
+    return () => {
+        supabase.removeChannel(channel);
+    }
+
   }, [orderId]);
 
+  const handleSeatSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (seatNumber.trim() && orderId) {
+      try {
+        await updateOrderSeatNumber(orderId, seatNumber.trim());
+        setSeatSubmitted(true);
+      } catch(error) {
+        console.error("Failed to submit seat number", error);
+        alert("Could not submit seat number. Please try again.");
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -122,12 +137,31 @@ const OrderSuccessPage: React.FC = () => {
         </div>
       </div>
       
-       {/* Seat Number Display */}
+       {/* Seat Number Section */}
        <div className="mt-8 pt-8 border-t-2 border-dashed border-surface-light animate-pop-in opacity-0" style={{ animationDelay: '400ms' }}>
-         <div className="text-center bg-green-500/20 border border-green-400/50 p-4 rounded-lg">
-                <p className="font-bold text-green-300">Seat Number: {order.seatNumber}</p>
-                <p className="text-sm text-green-300/80">We'll bring your order to you shortly.</p>
+        <h2 className="text-2xl font-bold font-heading text-center mb-4">For Dine-in Service</h2>
+        {seatSubmitted ? (
+            <div className="text-center bg-green-500/20 border border-green-400/50 p-4 rounded-lg">
+                <p className="font-bold text-green-300">Seat Number {seatNumber} submitted!</p>
+                <p className="text-sm text-green-300/80">We'll bring your order to you.</p>
             </div>
+        ) : (
+            <form onSubmit={handleSeatSubmit} className="flex flex-col items-center gap-4">
+                <label htmlFor="seatNumber" className="text-textSecondary text-center">Please enter your seat number below:</label>
+                <input
+                    id="seatNumber"
+                    type="text"
+                    value={seatNumber}
+                    onChange={(e) => setSeatNumber(e.target.value)}
+                    placeholder="e.g., A12 or 5"
+                    className="w-48 text-center text-2xl font-bold p-3 bg-black/30 border-2 border-white/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    required
+                />
+                <button type="submit" className="bg-primary text-background font-bold py-2 px-6 rounded-lg hover:bg-primary-dark transition-colors">
+                    Submit Seat Number
+                </button>
+            </form>
+        )}
       </div>
 
       <div className="mt-8 bg-black/30 p-4 rounded-lg animate-slide-in-up opacity-0" style={{ animationDelay: '500ms' }}>

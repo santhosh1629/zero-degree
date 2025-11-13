@@ -93,7 +93,7 @@ const HomePage: React.FC = () => {
                 
                 <div className="mt-10 flex flex-col sm:flex-row gap-6 w-full max-w-xs sm:max-w-md animate-fade-in-down" style={{animationDelay: '0.8s'}}>
                     <button
-                        onClick={() => navigate('/menu')}
+                        onClick={() => navigate('/customer/menu')}
                         className="btn-3d w-full bg-primary border-primary-dark text-background font-black py-3 px-4 rounded-xl shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-primary/40"
                     >
                         Order Snacks

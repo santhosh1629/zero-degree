@@ -1,25 +1,29 @@
-import React from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Role } from './types';
 import LoadingScreen from './components/common/LoadingScreen';
+import { supabase } from './services/supabase';
 
 // Common pages
 import HomePage from './pages/HomePage';
 import LoginOwnerPage from './pages/LoginOwnerPage';
 import RegisterOwnerPage from './pages/RegisterOwnerPage';
 import NotFoundPage from './pages/NotFoundPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import TermsAndConditionsPage from './pages/TermsAndConditionsPage';
 
-// Simplified Customer pages
+// Customer pages
 import CustomerLayout from './pages/student/StudentLayout';
 import MenuPage from './pages/student/MenuPage';
 import FoodDetailPage from './pages/student/FoodDetailPage';
 import CartPage from './pages/student/CartPage';
 import OrderSuccessPage from './pages/student/OrderSuccessPage';
 import OrderHistoryPage from './pages/student/OrderHistoryPage';
-import StudentFeedbackPage from './pages/student/FeedbackPage';
-import FavouritesPage from './pages/student/FavouritesPage';
+import FeedbackPage from './pages/student/FeedbackPage';
+import ProfilePage from './pages/student/ProfilePage';
+import CouponsPage from './pages/student/CouponsPage';
+import RewardsPage from './pages/student/RewardsPage';
 
 
 // Canteen Owner pages
@@ -31,6 +35,8 @@ import RewardsManagementPage from './pages/owner/RewardsManagementPage';
 import DailySpecialsPage from './pages/owner/DailySpecialsPage';
 import OwnerFeedbackPage from './pages/owner/FeedbackPage';
 import OffersPage from './pages/owner/OffersPage';
+import ScanApprovalPage from './pages/owner/ScanApprovalPage';
+import ScanOnlyPage from './pages/owner/ScanOnlyPage';
 import ScanTerminalLoginPage from './pages/owner/ScanTerminalLoginPage';
 import ScanTerminalHomePage from './pages/owner/ScanTerminalHomePage';
 
@@ -52,7 +58,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
   }
 
   if (!user) {
-    // If no user, redirect to owner login as customer flow is public.
+    // Redirect is now only for non-customer roles
     return <Navigate to="/login-owner" replace />;
   }
 
@@ -75,50 +81,54 @@ const AppRoutes = () => {
         return <LoadingScreen />;
     }
     
-    // This component now only redirects logged-in owners/admins
-    const OwnerOrAdminRedirect = () => {
-        if (user) {
-            switch (user.role) {
-                case Role.CANTEEN_OWNER:
-                    if (user.approvalStatus !== 'approved') {
-                        return <LoginOwnerPage />;
-                    }
-                    return user.canteenName
-                        ? <Navigate to="/owner/dashboard" replace />
-                        : <Navigate to="/scan-terminal/home" replace />;
-                case Role.ADMIN:
-                    return <Navigate to="/admin/dashboard" replace />;
-                default:
-                     return <HomePage />;
-            }
+    const RootRedirect = () => {
+        if (!user) {
+            return <HomePage />;
         }
-        // If not a logged-in owner/admin, show the home page.
-        return <HomePage />;
+
+        switch (user.role) {
+            case Role.STUDENT:
+                return <Navigate to="/customer/menu" replace />;
+            case Role.CANTEEN_OWNER:
+                if (user.approvalStatus !== 'approved') {
+                    return <Navigate to="/login-owner" replace />;
+                }
+                return user.canteenName
+                    ? <Navigate to="/owner/dashboard" replace />
+                    : <Navigate to="/scan-terminal/home" replace />;
+            case Role.ADMIN:
+                return <Navigate to="/admin/dashboard" replace />;
+            default:
+                return <HomePage />;
+        }
     };
 
     return (
         <Routes>
-            <Route path="/" element={<OwnerOrAdminRedirect />} />
+            <Route path="/" element={<RootRedirect />} />
             
-            {/* New Public Customer Routes */}
-            <Route element={<CustomerLayout />}>
-                <Route path="/menu" element={<MenuPage />} />
-                <Route path="/menu/:itemId" element={<FoodDetailPage />} />
-                <Route path="/favourites" element={<FavouritesPage />} />
-                <Route path="/cart" element={<CartPage />} />
-                <Route path="/order-success/:orderId" element={<OrderSuccessPage />} />
-                <Route path="/history" element={<OrderHistoryPage />} />
-                <Route path="/feedback" element={<StudentFeedbackPage />} />
-            </Route>
-            
-            {/* Public Owner/Admin Login/Register */}
+            {/* Public routes accessible without login */}
             <Route path="/login-owner" element={user ? <Navigate to="/" replace /> : <LoginOwnerPage />} />
             <Route path="/register-owner" element={user ? <Navigate to="/" replace /> : <RegisterOwnerPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/terms" element={<TermsAndConditionsPage />} />
             <Route path="/owner/scan-terminal" element={user ? <Navigate to="/" replace /> : <ScanTerminalLoginPage />} />
 
+            {/* Customer Routes - now publicly accessible layout, with protection inside pages */}
+            <Route path="/customer" element={<CustomerLayout />}>
+                <Route index element={<Navigate to="menu" replace />} />
+                <Route path="menu" element={<MenuPage />} />
+                <Route path="menu/:itemId" element={<FoodDetailPage />} />
+                <Route path="cart" element={<CartPage />} />
+                <Route path="order-success/:orderId" element={<OrderSuccessPage />} />
+                <Route path="history" element={<OrderHistoryPage />} />
+                <Route path="feedback" element={<FeedbackPage />} />
+                <Route path="profile" element={<ProfilePage />} />
+                <Route path="coupons" element={<CouponsPage />} />
+                <Route path="rewards" element={<RewardsPage />} />
+            </Route>
 
-            {/* Canteen Owner Routes (Protected) */}
+            {/* Canteen Owner Routes */}
             <Route path="/owner" element={
                 <ProtectedRoute allowedRoles={[Role.CANTEEN_OWNER]}>
                     <OwnerLayout />
@@ -134,14 +144,14 @@ const AppRoutes = () => {
                 <Route path="offers" element={<OffersPage />} />
             </Route>
             
-            {/* Standalone Scan Terminal page (Protected) */}
+            {/* Standalone Scan Terminal page */}
             <Route path="/scan-terminal/home" element={
                  <ProtectedRoute allowedRoles={[Role.CANTEEN_OWNER]}>
                     <ScanTerminalHomePage />
                 </ProtectedRoute>
             } />
             
-            {/* Admin Routes (Protected) */}
+            {/* Admin Routes */}
             <Route path="/admin/dashboard" element={
                  <ProtectedRoute allowedRoles={[Role.ADMIN]}>
                     <AdminDashboard />
@@ -159,8 +169,50 @@ const AppRoutes = () => {
 }
 
 const App: React.FC = () => {
+  const [dbConnectionError, setDbConnectionError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkDbConnection = async () => {
+      // A simple query to check if a core table exists.
+      const { error } = await supabase.from('users').select('id', { count: 'exact', head: true });
+
+      if (error && error.message.includes('relation "public.users" does not exist')) {
+        const projectId = supabase.supabaseUrl.split('.')[0].replace('https://', '');
+        const sqlEditorLink = `https://supabase.com/dashboard/project/${projectId}/sql`;
+        
+        setDbConnectionError(
+          `<b>Critical Error: Database setup is incomplete.</b> The 'users' table is missing. 
+           Please run the SQL schema script provided in your Supabase project's SQL Editor. 
+           <a href="${sqlEditorLink}" target="_blank" rel="noopener noreferrer" style="text-decoration: underline; font-weight: bold;">
+             Click here to open the SQL Editor.
+           </a>`
+        );
+      }
+    };
+    checkDbConnection();
+  }, []);
+
   return (
     <div className="min-h-screen w-full overflow-x-hidden font-sans bg-background text-textPrimary">
+       {dbConnectionError && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            backgroundColor: '#ef4444', // red-500
+            color: 'white',
+            padding: '16px',
+            textAlign: 'center',
+            zIndex: 9999,
+            fontSize: '14px',
+            lineHeight: '1.5',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+          }}
+          dangerouslySetInnerHTML={{ __html: dbConnectionError }}
+        />
+      )}
       <AuthProvider>
         <HashRouter>
             <AppRoutes />

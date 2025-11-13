@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { submitFeedback, getMenu } from '../../services/mockApi';
 import type { MenuItem } from '../../types';
 
@@ -27,27 +28,25 @@ const StarRating: React.FC<{ rating: number; setRating: (rating: number) => void
     );
 };
 
-const getGuestId = () => {
-    let guestId = localStorage.getItem('guestId');
-    if (!guestId) {
-        guestId = `guest_${crypto.randomUUID()}`;
-        localStorage.setItem('guestId', guestId);
-    }
-    return guestId;
-}
-
 const FeedbackPage: React.FC = () => {
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState('');
     const [selectedItemId, setSelectedItemId] = useState('');
-    const [studentName, setStudentName] = useState('');
     const [menu, setMenu] = useState<MenuItem[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
+    const { user, loading, promptForPhone } = useAuth();
+
+    useEffect(() => {
+        if (!loading && !user) {
+            promptForPhone();
+        }
+    }, [user, loading, promptForPhone]);
 
     useEffect(() => {
         const fetchMenuItems = async () => {
             try {
+                // Fetch menu without customer ID for a generic list
                 const menuItems = await getMenu();
                 setMenu(menuItems);
             } catch (error) {
@@ -59,8 +58,8 @@ const FeedbackPage: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!studentName.trim()) {
-            alert("Please enter your name.");
+        if (!user) {
+            promptForPhone(() => handleSubmit(e));
             return;
         }
         if (!selectedItemId) {
@@ -74,10 +73,8 @@ const FeedbackPage: React.FC = () => {
 
         setIsSubmitting(true);
         try {
-            const guestId = getGuestId();
             await submitFeedback({ 
-                studentId: guestId, 
-                studentName,
+                studentId: user.id, 
                 itemId: selectedItemId,
                 rating, 
                 comment,
@@ -100,26 +97,15 @@ const FeedbackPage: React.FC = () => {
         );
     }
     
+    if (!user) {
+        return <div className="text-center py-16 text-textPrimary"><p>Please log in to submit feedback.</p></div>;
+    }
+
     return (
         <div className="max-w-lg mx-auto bg-black/50 backdrop-blur-lg border border-white/20 p-8 rounded-lg shadow-md text-white">
             <h1 className="text-3xl font-bold font-heading mb-2 text-center">Give us your Feedback 📝</h1>
             <p className="text-center text-white/80 mb-6">Rate a specific food item from our menu.</p>
             <form onSubmit={handleSubmit}>
-                <div className="mb-6">
-                    <label htmlFor="student-name" className="block text-white/90 font-semibold mb-2">
-                        Your Name
-                    </label>
-                    <input
-                        id="student-name"
-                        type="text"
-                        value={studentName}
-                        onChange={(e) => setStudentName(e.target.value)}
-                        className="w-full px-4 py-2 border border-white/30 bg-black/30 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                        placeholder="Enter your name"
-                        required
-                    />
-                </div>
-
                 <div className="mb-6">
                     <label htmlFor="food-item" className="block text-white/90 font-semibold mb-2">
                         Which food item would you like to rate?
@@ -162,7 +148,7 @@ const FeedbackPage: React.FC = () => {
                 <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full bg-primary text-background font-bold font-heading py-3 px-4 rounded-lg hover:bg-primary-dark transition-colors disabled:bg-violet-300"
+                    className="w-full bg-primary text-white font-bold font-heading py-3 px-4 rounded-lg hover:bg-primary-dark transition-colors disabled:bg-violet-300"
                 >
                     {isSubmitting ? 'Submitting...' : 'Submit Feedback'}
                 </button>

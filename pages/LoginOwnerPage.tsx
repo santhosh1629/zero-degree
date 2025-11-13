@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -144,7 +143,6 @@ const LoginOwnerPage: React.FC = () => {
 
                     <div className="text-center mt-6 space-y-2">
                          <p><Link to="/register-owner" className="text-sm text-indigo-400 hover:text-indigo-300 font-bold font-heading transition-colors">Don't have an account? Register</Link></p>
-                        <p><Link to="/" className="text-sm text-gray-400 hover:text-white font-medium transition-colors">Back to Home</Link></p>
                     </div>
                   </>
               );

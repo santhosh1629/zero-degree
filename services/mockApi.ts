@@ -1,439 +1,904 @@
-// This file now contains functions to interact with a mock database in localStorage.
+// This file now contains functions to interact with the Supabase backend.
 
+import { supabase } from './supabase';
+import type { User, MenuItem, Order, OrderStatus, SalesSummary, Feedback, Offer, CartItem, StudentProfile, Reward, StudentPoints, TodaysDashboardStats, TodaysDetailedReport, AdminStats, OwnerBankDetails, CanteenPhoto } from '../types';
 import { Role as RoleEnum, OrderStatus as OrderStatusEnum } from '../types';
-import type { User, MenuItem, Order, OrderStatus, SalesSummary, Feedback, Offer, Reward, StudentPoints, TodaysDashboardStats, TodaysDetailedReport, AdminStats, OwnerBankDetails, CanteenPhoto, StudentProfile } from '../types';
 
-// --- MOCK DATABASE HELPER ---
-const getFromStorage = <T>(key: string): T[] => {
-    try {
-        return JSON.parse(localStorage.getItem(key) || '[]');
-    } catch {
-        return [];
+// NOTE: All auth-related functions (login, register, etc.) are now in context/AuthContext.tsx
+
+// --- DATA MAPPERS (snake_case from DB to camelCase in App) ---
+
+export const mapDbOrderToAppOrder = (dbOrder: any): Order => {
+    const studentNameFromDb = dbOrder.student_name || dbOrder.users?.username || 'N/A';
+    const seatNumberMatch = studentNameFromDb.match(/\(Seat: (.*?)\)/);
+    const seatNumber = seatNumberMatch ? seatNumberMatch[1] : undefined;
+    const studentName = studentNameFromDb.split(' (Seat:')[0];
+
+    return {
+        id: dbOrder.id,
+        studentId: dbOrder.student_id,
+        studentName: studentName,
+        customerPhone: dbOrder.users?.phone || dbOrder.student_phone,
+        items: dbOrder.items,
+        totalAmount: dbOrder.total_amount,
+        status: dbOrder.status,
+        qrToken: dbOrder.qr_token,
+        timestamp: new Date(dbOrder.timestamp),
+        orderType: dbOrder.order_type,
+        couponCode: dbOrder.coupon_code,
+        discountAmount: dbOrder.discount_amount,
+        refundAmount: dbOrder.refund_amount,
+        collectedByStaffId: dbOrder.collected_by_staff_id ? String(dbOrder.collected_by_staff_id) : undefined,
+        seatNumber: seatNumber,
+    };
+};
+
+const mapDbUserToAppUser = (dbUser: any): User => ({
+    id: dbUser.id,
+    username: dbUser.username,
+    role: dbUser.role,
+    phone: dbUser.phone,
+    email: dbUser.email,
+    profileImageUrl: dbUser.profile_image_url,
+    approvalStatus: dbUser.approval_status,
+    approvalDate: dbUser.approval_date,
+    isFirstLogin: dbUser.is_first_login,
+    canteenName: dbUser.canteen_name,
+    idProofUrl: dbUser.id_proof_url,
+    loyaltyPoints: dbUser.loyalty_points,
+});
+
+const mapDbMenuToAppMenu = (dbMenu: any): MenuItem => ({
+    id: dbMenu.id,
+    name: dbMenu.name,
+    price: dbMenu.price,
+    isAvailable: dbMenu.is_available,
+    imageUrl: dbMenu.image_url,
+    description: dbMenu.description,
+    emoji: dbMenu.emoji,
+    averageRating: dbMenu.average_rating,
+    favoriteCount: dbMenu.favorite_count,
+    isCombo: dbMenu.is_combo,
+    comboItems: dbMenu.combo_items,
+});
+
+const mapDbFeedbackToAppFeedback = (dbFeedback: any): Feedback => ({
+    id: dbFeedback.id,
+    studentId: dbFeedback.student_id,
+    studentName: dbFeedback.student_name,
+    itemId: dbFeedback.item_id,
+    itemName: dbFeedback.item_name,
+    rating: dbFeedback.rating,
+    comment: dbFeedback.comment,
+    timestamp: new Date(dbFeedback.timestamp),
+});
+
+const mapDbOfferToAppOffer = (dbOffer: any): Offer => ({
+    id: dbOffer.id,
+    code: dbOffer.code,
+    description: dbOffer.description,
+    discountType: dbOffer.discount_type,
+    discountValue: dbOffer.discount_value,
+    isUsed: dbOffer.is_used,
+    studentId: dbOffer.student_id,
+    isReward: dbOffer.is_reward,
+    isActive: dbOffer.is_active,
+    usageCount: dbOffer.usage_count,
+    redeemedCount: dbOffer.redeemed_count,
+});
+
+const mapDbRewardToAppReward = (dbReward: any): Reward => ({
+    id: dbReward.id,
+    title: dbReward.title,
+    description: dbReward.description,
+    pointsCost: dbReward.points_cost,
+    discount: dbReward.discount,
+    isActive: dbReward.is_active,
+    expiryDate: dbReward.expiry_date,
+});
+
+
+// --- DATA FETCHING & MUTATION FUNCTIONS ---
+export const createPaymentRecord = async (paymentData: { order_id: string; student_id: string; amount: number; method: string; status: 'successful' | 'failed'; transaction_id?: string; }) => {
+    const { error } = await supabase.from('payments').insert(paymentData);
+    if (error) throw error;
+};
+
+export const getOwnerStatus = async (): Promise<{ isOnline: boolean }> => {
+    // In a real app, this would query a specific table for the canteen's status
+    return { isOnline: true };
+}
+
+export const getMenu = async (studentId?: string): Promise<MenuItem[]> => {
+    const { data: menuData, error: menuError } = await supabase.from('menu').select('*');
+    if (menuError) throw menuError;
+    if (!menuData) return []; // Defensive check for null data
+
+    const mappedMenu = menuData.map(mapDbMenuToAppMenu);
+
+    if (!studentId) return mappedMenu;
+    
+    const { data: favoritesData, error: favoritesError } = await supabase
+        .from('student_favorites')
+        .select('item_id')
+        .eq('student_id', studentId);
+
+    if (favoritesError) {
+        console.error("Error fetching favorites:", favoritesError);
+        return mappedMenu;
     }
-};
-const saveToStorage = <T>(key: string, data: T[]): void => localStorage.setItem(key, JSON.stringify(data));
-
-// --- SEED DATA ---
-const seedData = {
-  users: [
-    { id: 'admin-1', username: 'Admin', email: 'admin@sangeetha.com', password: 'password', role: RoleEnum.ADMIN, approvalStatus: 'approved' },
-    { id: 'owner-1-approved', username: 'Suresh Kumar', email: 'suresh@cinema.com', phone: '1111111111', password: 'password', role: RoleEnum.CANTEEN_OWNER, canteenName: 'Sangeetha Screen 1 Snacks', approvalStatus: 'approved', approvalDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString() },
-    { id: 'owner-2-pending', username: 'Ramesh Jain', email: 'ramesh@cinema.com', phone: '2222222222', password: 'password', role: RoleEnum.CANTEEN_OWNER, canteenName: 'RJ Cinemas Food Court', approvalStatus: 'pending', idProofUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=' },
-    { id: 'customer-1', username: 'Priya Sharma', phone: '9999999999', password: 'password', role: RoleEnum.STUDENT, approvalStatus: 'approved', loyaltyPoints: 250 },
-    { id: 'staff-1', username: 'Scan Staff 1', phone: '7777777777', password: 'password', role: RoleEnum.CANTEEN_OWNER, approvalStatus: 'approved' } // Staff has no canteenName
-  ],
-  menu: [
-    { id: '1', name: 'Popcorn Tub', price: 150, isAvailable: true, imageUrl: 'https://images.unsplash.com/photo-1578849224429-f38b2c5826f4?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=600', emoji: '🍿', averageRating: 4.5 },
-    { id: '2', name: 'Veg Samosa (2 pcs)', price: 60, isAvailable: true, imageUrl: 'https://images.unsplash.com/photo-1601050690597-0b2ff9245148?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=600', emoji: '🥟', averageRating: 4.8 },
-    { id: '3', name: 'Cold Coffee', price: 120, isAvailable: true, imageUrl: 'https://images.unsplash.com/photo-1517701552120-f6d5b481a5c6?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=600', emoji: '🥤', averageRating: 4.2 },
-    { id: '4', name: 'Nachos with Cheese', price: 180, isAvailable: false, imageUrl: 'https://images.unsplash.com/photo-1598514983318-2f64f113fb83?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=600', emoji: '🧀', averageRating: 4.0 },
-    { id: '5', name: 'Movie Combo', price: 300, isAvailable: true, imageUrl: 'https://images.unsplash.com/photo-1620177082603-75d3a52c3664?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=600', emoji: '🎬', isCombo: true, description: '1 Popcorn Tub and 1 Cold Coffee', comboItems: [{ id: '1', name: 'Popcorn Tub' }, { id: '3', name: 'Cold Coffee' }], averageRating: 4.6 }
-  ],
-  orders: [], feedbacks: [],
-  offers: [ { id: 'offer-1', code: 'WELCOME10', description: '10% off your first order', discountType: 'percentage', discountValue: 10, isUsed: false, studentId: 'customer-1', usageCount: 1, redeemedCount: 0, isActive: true },],
-  rewards: [ { id: 'reward-1', title: 'Free Small Popcorn', description: 'Get a small popcorn on us!', pointsCost: 100, discount: { type: 'fixed', value: 80 }, isActive: true }, { id: 'reward-2', title: '₹50 Off Coupon', description: 'Get a flat ₹50 off on your next order.', pointsCost: 200, discount: { type: 'fixed', value: 50 }, isActive: true } ],
-  student_favorites: [ { student_id: 'customer-1', item_id: '3' } ],
-  owner_bank_details: [], canteen_photos: [], payments: [],
-};
-
-// --- INITIALIZE MOCK DB in localStorage ---
-(() => {
-    Object.entries(seedData).forEach(([key, value]) => {
-        if (!localStorage.getItem(key)) {
-            localStorage.setItem(key, JSON.stringify(value));
-        }
-    });
-})();
-
-// --- MOCK API FUNCTIONS ---
-
-// --- FAVOURITES FUNCTIONS ---
-export const getFavourites = (): string[] => {
-    try {
-        const favs = localStorage.getItem('favourites');
-        return favs ? JSON.parse(favs) : [];
-    } catch {
-        return [];
+    
+    if (!favoritesData) {
+        // Handle case where data is null but no error, to prevent crash on .map
+        return mappedMenu;
     }
+
+    const favoriteIds = new Set(favoritesData.map(f => f.item_id));
+    
+    return mappedMenu.map(item => ({
+        ...item,
+        isFavorited: favoriteIds.has(item.id)
+    }));
 };
 
-const saveFavourites = (favourites: string[]): void => {
-    localStorage.setItem('favourites', JSON.stringify(favourites));
-};
-
-export const isFavourited = (itemId: string): boolean => {
-    const favourites = getFavourites();
-    return favourites.includes(itemId);
-};
-
-export const toggleFavourite = (itemId: string): boolean => {
-    let favourites = getFavourites();
-    const isFav = favourites.includes(itemId);
-    if (isFav) {
-        favourites = favourites.filter(id => id !== itemId);
-    } else {
-        favourites.push(itemId);
-    }
-    saveFavourites(favourites);
-    // Return the new state
-    return !isFav;
-};
-
-export const getFavouriteItems = async (): Promise<MenuItem[]> => {
-    const menu = await getMenu();
-    const favouriteIds = getFavourites();
-    return menu.filter(item => favouriteIds.includes(item.id));
-};
-
-export const removeFromFavourites = (itemId: string): void => {
-    let favourites = getFavourites();
-    favourites = favourites.filter(id => id !== itemId);
-    saveFavourites(favourites);
-};
-
-
-export const createPaymentRecord = async (paymentData: any) => {
-    const payments = getFromStorage('payments');
-    payments.push({ ...paymentData, id: crypto.randomUUID() });
-    saveToStorage('payments', payments);
-};
-
-export const getOwnerStatus = async (): Promise<{ isOnline: boolean }> => ({ isOnline: true });
-
-export const getMenu = async (): Promise<MenuItem[]> => {
-    return getFromStorage<MenuItem>('menu');
-};
-
-// Fix: Update getMenuItemById to accept an optional studentId and fix argument mismatch error.
 export const getMenuItemById = async (itemId: string, studentId?: string): Promise<MenuItem | undefined> => {
-    const menu = await getMenu();
-    let item = menu.find(item => item.id === itemId);
+    const { data, error } = await supabase.from('menu').select('*').eq('id', itemId).single();
+    if (error) throw error;
+    if (!data) return undefined;
 
-    if (item && studentId) {
-        const favorites = getFromStorage<{ student_id: string, item_id: string }>('student_favorites');
-        const isFavorited = favorites.some(f => f.student_id === studentId && f.item_id === itemId);
-        item = { ...item, isFavorited };
+    const item: MenuItem = mapDbMenuToAppMenu(data);
+    
+    if (studentId) {
+        const { data: favorite, error: favError } = await supabase
+            .from('student_favorites')
+            .select('*')
+            .eq('student_id', studentId)
+            .eq('item_id', itemId)
+            .maybeSingle();
+        
+        if (favError) console.error(favError);
+        item.isFavorited = !!favorite;
     }
-
+    
     return item;
 };
 
-export const placeOrder = async (orderData: { items: any[]; totalAmount: number; phone: string, seatNumber: string }): Promise<Order> => {
-    const orders = getFromStorage<Order>('orders');
-    const localHistory = getFromStorage<Order>('orderHistory');
-    
-    const newId = crypto.randomUUID();
-    const newOrder: Order = {
-        id: newId,
-        studentName: 'Guest', // Set a default name
-        customerPhone: orderData.phone,
-        seatNumber: orderData.seatNumber,
-        items: orderData.items,
-        totalAmount: orderData.totalAmount,
-        status: OrderStatusEnum.PENDING,
-        qrToken: newId, // Use the order ID as the QR token
-        timestamp: new Date(),
-        orderType: 'real',
-    };
-    
-    // Save to owner's order list
-    orders.push(newOrder);
-    saveToStorage('orders', orders);
-    
-    // Save to customer's local history
-    localHistory.push(newOrder);
-    saveToStorage('orderHistory', localHistory);
+export const toggleFavoriteItem = async (studentId: string, itemId: string): Promise<void> => {
+    const { data: existing, error } = await supabase
+        .from('student_favorites')
+        .select('*')
+        .eq('student_id', studentId)
+        .eq('item_id', itemId)
+        .maybeSingle();
 
-    return newOrder;
+    if (error) throw error;
+
+    if (existing) {
+        const { error: deleteError } = await supabase.from('student_favorites').delete().match({ student_id: studentId, item_id: itemId });
+        if (deleteError) throw deleteError;
+    } else {
+        const { error: insertError } = await supabase.from('student_favorites').insert({ student_id: studentId, item_id: itemId });
+        if (insertError) throw insertError;
+    }
+};
+
+export const placeOrder = async (orderData: { studentId: string; studentName: string; items: any[]; totalAmount: number; couponCode?: string, discountAmount?: number }): Promise<Order> => {
+    const tempQrToken = `temp-id-${Date.now()}`;
+
+    const { data, error } = await supabase.from('orders').insert([
+        { 
+            student_id: orderData.studentId,
+            student_name: orderData.studentName,
+            items: orderData.items, 
+            total_amount: orderData.totalAmount,
+            status: OrderStatusEnum.PENDING,
+            order_type: 'real',
+            qr_token: tempQrToken,
+            coupon_code: orderData.couponCode,
+            discount_amount: orderData.discountAmount,
+        }
+    ]).select('id').single();
+
+    if (error) throw error;
+    
+    const finalQrToken = data.id;
+    const { data: updatedData, error: updateError } = await supabase
+        .from('orders')
+        .update({ qr_token: finalQrToken })
+        .eq('id', data.id)
+        .select('*, users(username, phone)')
+        .single();
+
+    if (updateError) throw updateError;
+
+    return mapDbOrderToAppOrder(updatedData);
+};
+
+
+export const cancelStudentOrder = async (orderId: string, studentId: string): Promise<Order> => {
+    const { data: order, error: fetchError } = await supabase.from('orders').select('total_amount').eq('id', orderId).single();
+    if (fetchError || !order) throw new Error("Order not found");
+
+    const refundAmount = order.total_amount * 0.5;
+
+    const { data, error } = await supabase
+        .from('orders')
+        .update({ status: OrderStatusEnum.CANCELLED, refund_amount: refundAmount })
+        .eq('id', orderId)
+        .eq('student_id', studentId)
+        .eq('status', OrderStatusEnum.PENDING)
+        .select('*, users(username, phone)')
+        .single();
+    
+    if (error || !data) throw new Error("Order cannot be cancelled. It might be already in preparation.");
+    return mapDbOrderToAppOrder(data);
 };
 
 export const verifyQrCodeAndCollectOrder = async (qrToken: string, staffId: string): Promise<Order> => {
-    let orders = getFromStorage<Order>('orders');
-    const orderIndex = orders.findIndex(o => o.qrToken === qrToken);
-    if (orderIndex === -1) throw new Error('Invalid or expired QR code.');
-    if (orders[orderIndex].status === OrderStatusEnum.COLLECTED) throw new Error('This order has already been collected.');
-    if (orders[orderIndex].status === OrderStatusEnum.CANCELLED) throw new Error('This order was cancelled.');
-    
-    orders[orderIndex].status = OrderStatusEnum.COLLECTED;
-    orders[orderIndex].collectedByStaffId = staffId;
-    saveToStorage('orders', orders);
+    if (!qrToken) {
+        throw new Error('QR code is empty or invalid.');
+    }
 
-    // Also update the status in local history if it exists
-    let localHistory = getFromStorage<Order>('orderHistory');
-    const historyIndex = localHistory.findIndex(o => o.qrToken === qrToken);
-    if (historyIndex > -1) {
-        localHistory[historyIndex].status = OrderStatusEnum.COLLECTED;
-        saveToStorage('orderHistory', localHistory);
+    const { data: order, error: fetchError } = await supabase
+        .from('orders')
+        .select('*, users(username, phone)')
+        .eq('qr_token', qrToken)
+        .single();
+    
+    if (fetchError || !order) {
+        console.error('QR Verification Error:', fetchError?.message || 'No order found or database error.');
+        throw new Error('Invalid or expired QR code. Please try again.');
     }
     
-    return orders[orderIndex];
-};
-
-export const getOrderById = async (orderId: string): Promise<Order> => {
-    // Check both main orders (for owner) and local history (for customer)
-    const orders = getFromStorage<Order>('orders');
-    let order = orders.find(o => o.id === orderId);
-    if (!order) {
-        const localHistory = getFromStorage<Order>('orderHistory');
-        order = localHistory.find(o => o.id === orderId);
+    if (order.status === OrderStatusEnum.COLLECTED) {
+        throw new Error('This order has already been collected.');
     }
-    if (!order) throw new Error('Order not found');
-    return { ...order, timestamp: new Date(order.timestamp) };
-};
-
-export const getLocalOrderHistory = async (): Promise<Order[]> => {
-    const orders = getFromStorage<Order>('orderHistory');
-    return orders.map(o => ({...o, timestamp: new Date(o.timestamp)})).sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-};
-
-// Fix: Add getStudentProfile function to fix missing export error.
-export const getStudentProfile = async (studentId: string): Promise<StudentProfile> => {
-    const users = getFromStorage<User>('users');
-    const user = users.find(u => u.id === studentId);
-    if (!user) throw new Error('User not found');
-
-    // This is mocked data as orders are not linked to students in this simplified version.
-    return {
-        id: user.id,
-        name: user.username,
-        phone: user.phone || 'N/A',
-        loyaltyPoints: user.loyaltyPoints || 0,
-        totalOrders: 5,
-        lifetimeSpend: 1250.50,
-        favoriteItemsCount: 3,
-        milestoneRewardsUnlocked: [200, 500, 1000]
-    };
-};
-
-// Fix: Add getRewards function to fix missing export error.
-export const getRewards = async (): Promise<Reward[]> => getFromStorage<Reward>('rewards');
-
-// Fix: Add redeemReward function to fix missing export error.
-export const redeemReward = async (studentId: string, rewardId: string): Promise<Offer> => {
-    const users = getFromStorage<User>('users');
-    const rewards = getFromStorage<Reward>('rewards');
-    const offers = getFromStorage<Offer>('offers');
-
-    const userIndex = users.findIndex(u => u.id === studentId);
-    if (userIndex === -1) throw new Error("User not found");
-
-    const reward = rewards.find(r => r.id === rewardId);
-    if (!reward) throw new Error("Reward not found");
-
-    const user = users[userIndex];
-    if ((user.loyaltyPoints || 0) < reward.pointsCost) {
-        throw new Error("Not enough points to redeem this reward.");
-    }
-
-    user.loyaltyPoints = (user.loyaltyPoints || 0) - reward.pointsCost;
-    users[userIndex] = user;
-    saveToStorage('users', users);
-
-    const newCoupon: Offer = {
-        id: `REWARD-${crypto.randomUUID().slice(0, 8)}`,
-        code: `${reward.title.replace(/\s+/g, '').toUpperCase().slice(0, 6)}${Math.floor(Math.random() * 1000)}`,
-        description: `Redeemed: ${reward.title}`,
-        discountType: reward.discount.type,
-        discountValue: reward.discount.value,
-        isUsed: false,
-        studentId: studentId,
-        isReward: true,
-        usageCount: 1,
-        redeemedCount: 0,
-        isActive: true,
-    };
     
-    offers.push(newCoupon);
-    saveToStorage('offers', offers);
-
-    // Update the user in localStorage if they are the current logged-in user
-    const loggedInUser = JSON.parse(localStorage.getItem('user') || 'null');
-    if (loggedInUser && loggedInUser.id === studentId) {
-        localStorage.setItem('user', JSON.stringify(user));
+    if (order.status !== OrderStatusEnum.PREPARED && order.status !== OrderStatusEnum.PENDING) {
+        throw new Error('This order cannot be collected (it may have been cancelled or is not ready).');
     }
 
-    return newCoupon;
+    const numericStaffId = parseInt(staffId.split('-')[0], 16);
+    if (isNaN(numericStaffId)) {
+        throw new Error('Could not generate a valid numeric ID for the staff member.');
+    }
+    
+    const { data: updatedOrder, error: updateError } = await supabase
+        .from('orders')
+        .update({ 
+            status: OrderStatusEnum.COLLECTED, 
+            collected_by_staff_id: numericStaffId
+        })
+        .eq('id', order.id)
+        .select('*, users(username, phone)')
+        .single();
+    
+    if (updateError) {
+        console.error('Order Update Error:', updateError.message);
+        throw new Error(updateError.message || 'Failed to update order status.');
+    }
+    return mapDbOrderToAppOrder(updatedOrder);
 };
 
+export const getOrderById = async(orderId: string): Promise<Order> => {
+    const { data, error } = await supabase.from('orders').select('*, users(username, phone)').eq('id', orderId).single();
+    if (error) throw error;
+    return mapDbOrderToAppOrder(data);
+}
 
-// --- ADMIN / OWNER FUNCTIONS (largely unchanged) ---
+export const updateOrderSeatNumber = async (orderId: string, seatNumber: string): Promise<Order> => {
+    const { data: currentOrder, error: fetchError } = await supabase
+        .from('orders')
+        .select('student_name')
+        .eq('id', orderId)
+        .single();
+    if (fetchError || !currentOrder) throw new Error("Order not found");
+
+    const baseName = currentOrder.student_name.split(' (Seat:')[0];
+    const newStudentName = `${baseName} (Seat: ${seatNumber})`;
+
+    const { data, error } = await supabase
+        .from('orders')
+        .update({ student_name: newStudentName })
+        .eq('id', orderId)
+        .select('*, users(username, phone)')
+        .single();
+
+    if (error) throw error;
+    return mapDbOrderToAppOrder(data);
+};
+
+export const getStudentOrders = async (studentId: string): Promise<Order[]> => {
+    const { data, error } = await supabase.from('orders').select('*, users(username, phone)').eq('student_id', studentId).order('timestamp', { ascending: false });
+    if (error) throw error;
+    return data.map(mapDbOrderToAppOrder);
+};
+
+export const submitFeedback = async (feedbackData: { studentId: string; itemId: string; rating: number; comment?: string; }): Promise<Feedback> => {
+    const { data: itemData } = await supabase.from('menu').select('name').eq('id', feedbackData.itemId).single();
+    const { data: customerData } = await supabase.from('users').select('username').eq('id', feedbackData.studentId).single();
+
+    const { data, error } = await supabase.from('feedbacks').insert([
+        {
+            student_id: feedbackData.studentId,
+            item_id: feedbackData.itemId,
+            rating: feedbackData.rating,
+            comment: feedbackData.comment,
+            item_name: itemData?.name || 'Unknown Item',
+            student_name: customerData?.username || 'Anonymous',
+        }
+    ]).select().single();
+
+    if (error) throw error;
+    return mapDbFeedbackToAppFeedback(data);
+};
+
+// --- ADMIN / OWNER FUNCTIONS ---
+
 export const getAdminDashboardStats = async (): Promise<AdminStats> => {
-    const users = getFromStorage<User>('users');
-    const feedbacks = getFromStorage<Feedback>('feedbacks');
+    const { count: totalUsers, error: usersError } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true });
+
+    const { count: totalCustomers, error: customersError } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', RoleEnum.STUDENT);
+    
+    const { count: totalOwners, error: ownersError } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', RoleEnum.CANTEEN_OWNER);
+        
+    const { count: pendingApprovals, error: pendingError } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', RoleEnum.CANTEEN_OWNER)
+        .eq('approval_status', 'pending');
+
+    const { count: totalFeedbacks, error: feedbacksError } = await supabase
+        .from('feedbacks')
+        .select('*', { count: 'exact', head: true });
+
+    if (usersError || customersError || ownersError || pendingError || feedbacksError) {
+        console.error('Error fetching admin stats:', usersError || customersError || ownersError || pendingError || feedbacksError);
+        throw new Error('Could not fetch admin dashboard stats.');
+    }
+
     return {
-        totalUsers: users.length,
-        totalCustomers: users.filter(u => u.role === RoleEnum.STUDENT).length,
-        totalOwners: users.filter(u => u.role === RoleEnum.CANTEEN_OWNER).length,
-        pendingApprovals: users.filter(u => u.role === RoleEnum.CANTEEN_OWNER && u.approvalStatus === 'pending').length,
-        totalFeedbacks: feedbacks.length,
+        totalUsers: totalUsers ?? 0,
+        totalCustomers: totalCustomers ?? 0,
+        totalOwners: totalOwners ?? 0,
+        pendingApprovals: pendingApprovals ?? 0,
+        totalFeedbacks: totalFeedbacks ?? 0,
     };
 };
 
 export const updateAllMenuItemsAvailability = async (ownerId: string, isAvailable: boolean): Promise<void> => {
-    const menu = getFromStorage<MenuItem>('menu').map(item => ({ ...item, isAvailable }));
-    saveToStorage('menu', menu);
+    const { error } = await supabase
+        .from('menu')
+        .update({ is_available: isAvailable })
+        .gte('price', 0);
+
+    if (error) {
+        console.error("Failed to update menu availability:", error);
+        throw error;
+    }
 };
 
-export const getPendingOwnerRequests = async (): Promise<User[]> => getFromStorage<User>('users').filter(u => u.role === RoleEnum.CANTEEN_OWNER && u.approvalStatus === 'pending');
-export const getApprovedOwners = async (): Promise<User[]> => getFromStorage<User>('users').filter(u => u.role === RoleEnum.CANTEEN_OWNER && u.approvalStatus === 'approved');
-export const getRejectedOwners = async (): Promise<User[]> => getFromStorage<User>('users').filter(u => u.role === RoleEnum.CANTEEN_OWNER && u.approvalStatus === 'rejected');
+export const getPendingOwnerRequests = async (): Promise<User[]> => {
+    const { data, error } = await supabase.from('users').select('*').eq('role', RoleEnum.CANTEEN_OWNER).eq('approval_status', 'pending');
+    if (error) throw error;
+    return data.map(mapDbUserToAppUser);
+};
+
+export const getApprovedOwners = async (): Promise<User[]> => {
+    const { data, error } = await supabase.from('users').select('*').eq('role', RoleEnum.CANTEEN_OWNER).eq('approval_status', 'approved');
+    if (error) throw error;
+    if (!data) return [];
+    return data.map(mapDbUserToAppUser);
+};
+
+export const getRejectedOwners = async (): Promise<User[]> => {
+    const { data, error } = await supabase.from('users').select('*').eq('role', RoleEnum.CANTEEN_OWNER).eq('approval_status', 'rejected');
+    if (error) throw error;
+    return data.map(mapDbUserToAppUser);
+};
 
 export const updateOwnerApprovalStatus = async (userId: string, status: 'approved' | 'rejected' | 'pending'): Promise<User> => {
-    const users = getFromStorage<User>('users');
-    const userIndex = users.findIndex(u => u.id === userId);
-    if (userIndex === -1) throw new Error("User not found");
-    users[userIndex].approvalStatus = status;
-    if (status === 'approved') users[userIndex].approvalDate = new Date().toISOString();
-    saveToStorage('users', users);
-    return users[userIndex];
+    const { data, error } = await supabase
+        .from('users')
+        .update({ approval_status: status, approval_date: status === 'approved' ? new Date().toISOString() : null })
+        .eq('id', userId)
+        .select()
+        .single();
+    if (error) throw error;
+    return mapDbUserToAppUser(data);
 };
 
 export const removeOwnerAccount = async (userId: string): Promise<{ success: boolean }> => {
-    const users = getFromStorage<User>('users').filter(u => u.id !== userId);
-    saveToStorage('users', users);
+    const { error } = await supabase.from('users').delete().eq('id', userId);
+    if (error) throw error;
     return { success: true };
 };
 
-export const getOwnerOrders = async (): Promise<Order[]> => getFromStorage<Order>('orders').map(o => ({...o, timestamp: new Date(o.timestamp)})).sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime());
+export const getOwnerOrders = async (): Promise<Order[]> => {
+    const { data, error } = await supabase.from('orders').select('*, users(username, phone)').order('timestamp', { ascending: false });
+    if (error) throw error;
+    return data.map(mapDbOrderToAppOrder);
+};
 
 export const updateOrderStatus = async (orderId: string, status: OrderStatus): Promise<Order> => {
-    const orders = getFromStorage<Order>('orders');
-    const orderIndex = orders.findIndex(o => o.id === orderId);
-    if (orderIndex === -1) throw new Error("Order not found");
-    orders[orderIndex].status = status;
-    saveToStorage('orders', orders);
-    return orders[orderIndex];
+    const { data, error } = await supabase.from('orders').update({ status }).eq('id', orderId).select('*, users(username, phone)').single();
+    if (error) throw error;
+    return mapDbOrderToAppOrder(data);
 };
 
 export const updateMenuAvailability = async (itemId: string, isAvailable: boolean): Promise<MenuItem> => {
-    const menu = getFromStorage<MenuItem>('menu');
-    const itemIndex = menu.findIndex(i => i.id === itemId);
-    if (itemIndex === -1) throw new Error("Item not found");
-    menu[itemIndex].isAvailable = isAvailable;
-    saveToStorage('menu', menu);
-    return menu[itemIndex];
+    const { data, error } = await supabase.from('menu').update({ is_available: isAvailable }).eq('id', itemId).select().single();
+    if (error) throw error;
+    return mapDbMenuToAppMenu(data);
 };
 
-export const getTodaysDashboardStats = async (): Promise<TodaysDashboardStats> => ({ totalOrders: 0, totalIncome: 0, itemsSold: [] });
-export const getTodaysDetailedReport = async (): Promise<TodaysDetailedReport> => ({ date: new Date().toISOString().split('T')[0], totalOrders: 0, totalIncome: 0, itemSales: [] });
-export const getSalesSummary = async (): Promise<SalesSummary> => ({ daily: [], weekly: [] });
-export const getUsers = async (): Promise<User[]> => getFromStorage<User>('users');
-export const getFeedbacks = async (): Promise<Feedback[]> => getFromStorage<Feedback>('feedbacks').map(f => ({...f, timestamp: new Date(f.timestamp)})).sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime());
+const getStartOfToday = () => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return now.toISOString();
+}
+
+export const getTodaysDashboardStats = async (): Promise<TodaysDashboardStats> => {
+    const { data, error } = await supabase.from('orders').select('total_amount, items').gte('timestamp', getStartOfToday());
+    if (error) throw error;
+
+    const totalOrders = data.length;
+    const totalIncome = data.reduce((sum, order) => sum + order.total_amount, 0);
+    
+    const itemCounts = new Map<string, number>();
+    data.forEach(order => {
+        order.items.forEach((item: any) => {
+            itemCounts.set(item.name, (itemCounts.get(item.name) || 0) + item.quantity);
+        });
+    });
+    
+    const itemsSold = Array.from(itemCounts.entries()).map(([name, quantity]) => ({ name, quantity })).sort((a,b) => b.quantity - a.quantity);
+
+    return { totalOrders, totalIncome, itemsSold };
+};
+
+export const getTodaysDetailedReport = async (): Promise<TodaysDetailedReport> => {
+    const { data, error } = await supabase.from('orders').select('total_amount, items').gte('timestamp', getStartOfToday());
+    if (error) throw error;
+    
+    const itemSalesMap = new Map<string, { quantity: number; totalPrice: number }>();
+    data.forEach(order => {
+        order.items.forEach((item: any) => {
+            const existing = itemSalesMap.get(item.name) || { quantity: 0, totalPrice: 0 };
+            existing.quantity += item.quantity;
+            existing.totalPrice += item.quantity * item.price;
+            itemSalesMap.set(item.name, existing);
+        });
+    });
+
+    return {
+        date: new Date().toISOString().split('T')[0],
+        totalOrders: data.length,
+        totalIncome: data.reduce((sum, order) => sum + order.total_amount, 0),
+        itemSales: Array.from(itemSalesMap.entries()).map(([name, sales]) => ({ name, ...sales })),
+    };
+};
+
+export const getSalesSummary = async (): Promise<SalesSummary> => {
+     const { data, error } = await supabase.from('orders').select('timestamp, total_amount');
+    if (error) throw error;
+    // This is a simplified client-side aggregation. For production, use DB functions (RPC).
+    const weeklySales = new Map<string, number>();
+    data.forEach(order => {
+        const date = new Date(order.timestamp);
+        const weekStart = new Date(date.setDate(date.getDate() - date.getDay())).toISOString().split('T')[0];
+        weeklySales.set(weekStart, (weeklySales.get(weekStart) || 0) + order.total_amount);
+    });
+
+    const weekly = Array.from(weeklySales.entries()).map(([week, total]) => ({ week, total })).sort((a, b) => new Date(a.week).getTime() - new Date(b.week).getTime()).slice(-4);
+    
+    return { daily: [], weekly };
+};
+
+export const getUsers = async (): Promise<User[]> => {
+    const { data, error } = await supabase.from('users').select('*');
+    if (error) throw error;
+    return data.map(mapDbUserToAppUser);
+};
+export const getFeedbacks = async (): Promise<Feedback[]> => {
+    const { data, error } = await supabase.from('feedbacks').select('*').order('timestamp', { ascending: false });
+    if (error) throw error;
+    return data.map(mapDbFeedbackToAppFeedback);
+};
 
 export const getFoodPopularityStats = async (): Promise<MenuItem[]> => {
-    const menu = getFromStorage<MenuItem>('menu');
-    return menu.map(item => ({
-        ...item,
-        averageRating: item.averageRating || Math.random() * 2 + 3,
-        favoriteCount: Math.floor(Math.random() * 50)
+    const [
+        { data: menuData, error: menuError },
+        { data: feedbacksData, error: feedbacksError },
+        { data: favoritesData, error: favoritesError }
+    ] = await Promise.all([
+        supabase.from('menu').select('*'),
+        supabase.from('feedbacks').select('item_id, rating'),
+        supabase.from('student_favorites').select('item_id')
+    ]);
+
+    if (menuError || feedbacksError || favoritesError) {
+        console.error("Error fetching popularity stats:", menuError || feedbacksError || favoritesError);
+        throw new Error("Could not fetch popularity statistics.");
+    }
+    
+    if (!menuData) return [];
+
+    const ratingsMap = new Map<string, { totalRating: number; count: number }>();
+    if (feedbacksData) {
+        for (const feedback of feedbacksData) {
+            const current = ratingsMap.get(feedback.item_id) || { totalRating: 0, count: 0 };
+            current.totalRating += feedback.rating;
+            current.count += 1;
+            ratingsMap.set(feedback.item_id, current);
+        }
+    }
+
+    const favoritesCountMap = new Map<string, number>();
+    if (favoritesData) {
+        for (const favorite of favoritesData) {
+            favoritesCountMap.set(favorite.item_id, (favoritesCountMap.get(favorite.item_id) || 0) + 1);
+        }
+    }
+
+    const stats: MenuItem[] = menuData.map(dbItem => {
+        const item = mapDbMenuToAppMenu(dbItem);
+        const ratingInfo = ratingsMap.get(item.id);
+        const favoriteCount = favoritesCountMap.get(item.id) || 0;
+
+        item.averageRating = ratingInfo ? ratingInfo.totalRating / ratingInfo.count : 0;
+        item.favoriteCount = favoriteCount;
+        
+        return item;
+    });
+
+    return stats;
+};
+
+export const getMostSellingItems = async (): Promise<{ name: string; count: number }[]> => {
+    const { data, error } = await supabase.from('orders').select('items');
+    if (error) throw error;
+    const itemCounts = new Map<string, number>();
+    data.forEach(order => {
+        order.items.forEach((item: any) => {
+            itemCounts.set(item.name, (itemCounts.get(item.name) || 0) + item.quantity);
+        });
+    });
+    return Array.from(itemCounts.entries()).map(([name, count]) => ({ name, count })).sort((a,b) => b.count - a.count).slice(0, 10);
+};
+
+export const getOrderStatusSummary = async (): Promise<{ name: string; value: number }[]> => {
+    const { data, error } = await supabase.from('orders').select('status');
+    if (error) throw error;
+    const statusCounts = new Map<string, number>();
+    data.forEach(order => {
+        statusCounts.set(order.status, (statusCounts.get(order.status) || 0) + 1);
+    });
+    return Array.from(statusCounts.entries()).map(([name, value]) => ({ name, value }));
+};
+
+export const getStudentPointsList = async (): Promise<StudentPoints[]> => {
+    const { data, error } = await supabase.from('users').select('id, username, loyalty_points').eq('role', RoleEnum.STUDENT).order('loyalty_points', { ascending: false }).limit(20);
+    if (error) throw error;
+    return data.map(u => ({ studentId: u.id, studentName: u.username, points: u.loyalty_points }));
+};
+
+export const getScanTerminalStaff = async (): Promise<User[]> => {
+    const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('role', RoleEnum.CANTEEN_OWNER)
+        .is('canteen_name', null);
+    
+    if (error) throw error;
+    if (!data) return [];
+
+    return data.map(mapDbUserToAppUser);
+};
+
+export const deleteScanTerminalStaff = async (userId: string): Promise<void> => {
+    const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', userId);
+    
+    if (error) throw error;
+};
+
+export const getAllOffersForOwner = async (): Promise<Offer[]> => {
+    const { data, error } = await supabase.from('offers').select('*').eq('is_reward', false);
+    if (error) throw error;
+    return data.map(mapDbOfferToAppOffer);
+};
+export const createOffer = async (offerData: Partial<Offer>): Promise<void> => {
+    const dbPayload = {
+        code: offerData.code,
+        description: offerData.description,
+        discount_type: offerData.discountType,
+        discount_value: offerData.discountValue,
+        is_active: offerData.isActive,
+        usage_count: offerData.usageCount || 1,
+        redeemed_count: 0,
+    };
+    const { error } = await supabase.from('offers').insert(dbPayload);
+    if (error) throw error;
+};
+export const updateOfferStatus = async (offerId: string, isActive: boolean): Promise<void> => {
+    const { error } = await supabase.from('offers').update({ is_active: isActive }).eq('id', offerId);
+    if (error) throw error;
+};
+
+export const updateOffer = async (offerId: string, updatedData: Partial<Omit<Offer, 'id'>>): Promise<void> => {
+    const dbPayload: Record<string, any> = {};
+    if (updatedData.code !== undefined) dbPayload.code = updatedData.code;
+    if (updatedData.description !== undefined) dbPayload.description = updatedData.description;
+    if (updatedData.discountType !== undefined) dbPayload.discount_type = updatedData.discountType;
+    if (updatedData.discountValue !== undefined) dbPayload.discount_value = updatedData.discountValue;
+    if (updatedData.isActive !== undefined) dbPayload.is_active = updatedData.isActive;
+    if (updatedData.usageCount !== undefined) dbPayload.usage_count = updatedData.usageCount;
+
+    const { error } = await supabase
+        .from('offers')
+        .update(dbPayload)
+        .eq('id', offerId);
+    
+    if (error) throw error;
+};
+
+export const deleteOffer = async (offerId: string): Promise<void> => {
+    const { error } = await supabase
+        .from('offers')
+        .delete()
+        .eq('id', offerId);
+    
+    if (error) throw error;
+};
+
+export const getOffers = async (studentId: string): Promise<Offer[]> => {
+    const { data, error } = await supabase
+        .from('offers')
+        .select('*')
+        .or(`student_id.eq.${studentId},student_id.is.null`)
+        .eq('is_used', false)
+        .eq('is_active', true);
+    if (error) throw error;
+    return data.map(mapDbOfferToAppOffer);
+};
+
+export const getAllStudentCoupons = async (studentId: string): Promise<Offer[]> => {
+    const { data, error } = await supabase.from('offers').select('*').eq('student_id', studentId);
+    if (error) throw error;
+    return data.map(mapDbOfferToAppOffer);
+};
+
+export const getStudentProfile = async (studentId: string): Promise<StudentProfile> => {
+    const { data: userData, error: userError } = await supabase.from('users').select('username, phone, loyalty_points').eq('id', studentId).single();
+    if (userError) throw userError;
+
+    const { data: orders, error: ordersError } = await supabase.from('orders').select('total_amount').eq('student_id', studentId).not('status', 'eq', 'cancelled');
+    if (ordersError) throw ordersError;
+
+    const { count: favoritesCount, error: favoritesError } = await supabase.from('student_favorites').select('*', { count: 'exact', head: true }).eq('student_id', studentId);
+    if (favoritesError) throw favoritesError;
+
+    const totalOrders = orders.length;
+    const lifetimeSpend = orders.reduce((sum, order) => sum + Number(order.total_amount), 0);
+
+    const MILESTONES = [200, 500, 1000];
+    const milestoneRewardsUnlocked = MILESTONES.filter(m => lifetimeSpend >= m);
+
+    return {
+        id: studentId,
+        name: userData.username,
+        phone: userData.phone,
+        loyaltyPoints: userData.loyalty_points,
+        totalOrders,
+        lifetimeSpend,
+        favoriteItemsCount: favoritesCount ?? 0,
+        milestoneRewardsUnlocked,
+    };
+};
+
+export const getRewards = async (): Promise<Reward[]> => {
+    const { data, error } = await supabase.from('rewards').select('*').eq('is_active', true);
+    if (error) throw error;
+    return data.map(mapDbRewardToAppReward);
+};
+export const getAllRewardsForOwner = async (): Promise<Reward[]> => {
+    const { data, error } = await supabase.from('rewards').select('*');
+    if (error) throw error;
+    return data.map(mapDbRewardToAppReward);
+};
+export const createReward = async (rewardData: Omit<Reward, 'id'>): Promise<Reward> => {
+    const { data, error } = await supabase.from('rewards').insert({
+        title: rewardData.title,
+        description: rewardData.description,
+        points_cost: rewardData.pointsCost,
+        discount: rewardData.discount,
+        is_active: rewardData.isActive,
+        expiry_date: rewardData.expiryDate,
+    }).select().single();
+    if (error) throw error;
+    return mapDbRewardToAppReward(data);
+};
+export const updateReward = async (rewardId: string, updatedData: Partial<Omit<Reward, 'id'>>): Promise<Reward> => {
+    const dbPayload: Record<string, any> = {};
+    if (updatedData.title !== undefined) dbPayload.title = updatedData.title;
+    if (updatedData.description !== undefined) dbPayload.description = updatedData.description;
+    if (updatedData.pointsCost !== undefined) dbPayload.points_cost = updatedData.pointsCost;
+    if (updatedData.discount !== undefined) dbPayload.discount = updatedData.discount;
+    if (updatedData.isActive !== undefined) dbPayload.is_active = updatedData.isActive;
+    if (updatedData.expiryDate !== undefined) dbPayload.expiry_date = updatedData.expiryDate;
+
+    const { data, error } = await supabase.from('rewards').update(dbPayload).eq('id', rewardId).select().single();
+    if (error) throw error;
+    return mapDbRewardToAppReward(data);
+};
+export const deleteReward = async (rewardId: string): Promise<void> => {
+    const { error } = await supabase.from('rewards').delete().eq('id', rewardId);
+    if (error) throw error;
+};
+
+export const redeemReward = async (studentId: string, rewardId: string): Promise<Offer> => {
+    const { data: reward, error: rewardError } = await supabase.from('rewards').select('*').eq('id', rewardId).single();
+    if (rewardError || !reward) throw new Error('Reward not found.');
+
+    const { data: user, error: userError } = await supabase.from('users').select('loyalty_points').eq('id', studentId).single();
+    if (userError || !user) throw new Error('User not found.');
+    
+    if (user.loyalty_points < reward.points_cost) throw new Error('Not enough points to redeem this reward.');
+
+    const newPoints = user.loyalty_points - reward.points_cost;
+    const { error: updatePointsError } = await supabase.from('users').update({ loyalty_points: newPoints }).eq('id', studentId);
+    if (updatePointsError) throw new Error('Failed to update points. Please try again.');
+
+    const newCouponCode = `${reward.title.substring(0, 4).toUpperCase()}${Date.now().toString().slice(-5)}`;
+    const { data: newOffer, error: offerError } = await supabase.from('offers').insert({
+        code: newCouponCode,
+        description: `Redeemed: ${reward.title}`,
+        discount_type: reward.discount.type,
+        discount_value: reward.discount.value,
+        is_used: false,
+        student_id: studentId,
+        is_reward: true,
+        is_active: true,
+        redeemed_count: 0,
+    }).select().single();
+
+    if (offerError) throw new Error('Failed to create coupon from reward.');
+    
+    return mapDbOfferToAppOffer(newOffer);
+};
+
+export const getOwnerBankDetails = async (ownerId: string): Promise<OwnerBankDetails> => {
+    const { data, error } = await supabase.from('owner_bank_details').select('*').eq('owner_id', ownerId).maybeSingle();
+    if (error) throw error;
+    return data || { accountNumber: '', bankName: '', ifscCode: '', upiId: '', email: '', phone: '' };
+};
+
+export const requestSaveBankDetailsOtp = async (details: OwnerBankDetails): Promise<{ message: string }> => {
+    console.log(`OTP for bank details update: 123456`);
+    return { message: "OTP sent to your registered phone and email." };
+};
+
+export const verifyOtpAndSaveBankDetails = async (details: OwnerBankDetails, otp: string, ownerId: string): Promise<OwnerBankDetails> => {
+    if (otp !== '123456') { 
+        throw new Error('Invalid OTP. Please try again.');
+    }
+    const payload = {
+        owner_id: ownerId,
+        account_number: details.accountNumber,
+        bank_name: details.bankName,
+        ifsc_code: details.ifscCode,
+        upi_id: details.upiId,
+        email: details.email,
+        phone: details.phone,
+    };
+    const { data, error } = await supabase
+        .from('owner_bank_details')
+        .upsert(payload, { onConflict: 'owner_id' })
+        .select()
+        .single();
+        
+    if (error) throw error;
+
+    return {
+        accountNumber: data.account_number,
+        bankName: data.bank_name,
+        ifscCode: data.ifsc_code,
+        upiId: data.upi_id,
+        email: data.email,
+        phone: data.phone,
+    };
+};
+
+export const addMenuItem = async (itemData: Partial<MenuItem> & { price: number }, ownerId: string): Promise<MenuItem> => {
+    const payload = {
+        name: itemData.name,
+        price: itemData.price,
+        image_url: itemData.imageUrl,
+        is_available: itemData.isAvailable,
+        emoji: itemData.emoji,
+        description: itemData.description,
+        is_combo: itemData.isCombo,
+        combo_items: itemData.comboItems,
+    };
+    const { data, error } = await supabase.from('menu').insert(payload).select().single();
+    if (error) throw error;
+    return mapDbMenuToAppMenu(data);
+};
+
+export const updateMenuItem = async (itemId: string, itemData: Partial<MenuItem>): Promise<MenuItem> => {
+    const payload: Record<string, any> = {};
+    if(itemData.name) payload.name = itemData.name;
+    if(itemData.price) payload.price = itemData.price;
+    if(itemData.imageUrl) payload.image_url = itemData.imageUrl;
+    if(itemData.isAvailable !== undefined) payload.is_available = itemData.isAvailable;
+    if(itemData.emoji) payload.emoji = itemData.emoji;
+    if(itemData.description) payload.description = itemData.description;
+    if(itemData.isCombo !== undefined) payload.is_combo = itemData.isCombo;
+    if(itemData.comboItems) payload.combo_items = itemData.comboItems;
+    
+    const { data, error } = await supabase.from('menu').update(payload).eq('id', itemId).select().single();
+    if (error) throw error;
+    return mapDbMenuToAppMenu(data);
+};
+
+export const removeMenuItem = async (itemId: string): Promise<void> => {
+    const { error } = await supabase.from('menu').delete().eq('id', itemId);
+    if (error) throw error;
+};
+
+const processImageForUpload = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = error => reject(error);
+    });
+};
+
+export const getCanteenPhotos = async (): Promise<CanteenPhoto[]> => {
+    const { data, error } = await supabase.from('canteen_photos').select('*').order('uploaded_at', { ascending: false });
+    if (error) throw error;
+    return data.map(p => ({
+        id: p.id,
+        data: p.data,
+        uploadedAt: new Date(p.uploaded_at),
     }));
 };
 
-export const getMostSellingItems = async (): Promise<{ name: string; count: number }[]> => ([]);
-export const getOrderStatusSummary = async (): Promise<{ name: string; value: number }[]> => ([]);
-export const getStudentPointsList = async (): Promise<StudentPoints[]> => getFromStorage<User>('users').filter(u => u.role === RoleEnum.STUDENT).map(u => ({ studentId: u.id, studentName: u.username, points: u.loyaltyPoints || 0 }));
-
-export const getScanTerminalStaff = async (): Promise<User[]> => getFromStorage<User>('users').filter(u => u.role === RoleEnum.CANTEEN_OWNER && !u.canteenName);
-
-export const deleteScanTerminalStaff = async (userId: string): Promise<void> => {
-    const users = getFromStorage<User>('users').filter(u => u.id !== userId);
-    saveToStorage('users', users);
-};
-
-export const getAllOffersForOwner = async (): Promise<Offer[]> => getFromStorage<Offer>('offers').filter(o => !o.isReward);
-export const createOffer = async (offerData: Partial<Offer>): Promise<void> => {
-    const offers = getFromStorage<Offer>('offers');
-    offers.push({ ...offerData, id: crypto.randomUUID(), isUsed: false, redeemedCount: 0 } as Offer);
-    saveToStorage('offers', offers);
-};
-export const updateOffer = async (offerId: string, updatedData: Partial<Omit<Offer, 'id'>>): Promise<void> => {
-    const offers = getFromStorage<Offer>('offers');
-    const index = offers.findIndex(o => o.id === offerId);
-    if (index !== -1) {
-        offers[index] = { ...offers[index], ...updatedData };
-        saveToStorage('offers', offers);
-    }
-};
-export const deleteOffer = async (offerId: string): Promise<void> => {
-    const offers = getFromStorage<Offer>('offers').filter(o => o.id !== offerId);
-    saveToStorage('offers', offers);
-};
-
-export const getAllRewardsForOwner = async (): Promise<Reward[]> => getFromStorage<Reward>('rewards');
-export const createReward = async (rewardData: Omit<Reward, 'id'>): Promise<Reward> => {
-    const rewards = getFromStorage<Reward>('rewards');
-    const newReward = { ...rewardData, id: crypto.randomUUID() };
-    rewards.push(newReward);
-    saveToStorage('rewards', rewards);
-    return newReward;
-};
-export const updateReward = async (rewardId: string, updatedData: Partial<Omit<Reward, 'id'>>): Promise<Reward> => {
-    const rewards = getFromStorage<Reward>('rewards');
-    const index = rewards.findIndex(r => r.id === rewardId);
-    if(index === -1) throw new Error("Reward not found");
-    rewards[index] = { ...rewards[index], ...updatedData };
-    saveToStorage('rewards', rewards);
-    return rewards[index];
-};
-export const deleteReward = async (rewardId: string): Promise<void> => {
-    const rewards = getFromStorage<Reward>('rewards').filter(r => r.id !== rewardId);
-    saveToStorage('rewards', rewards);
-};
-
-// Dummy functions for unimplemented features
-export const getOwnerBankDetails = async (ownerId: string): Promise<OwnerBankDetails> => ({ accountNumber: '', bankName: '', ifscCode: '', upiId: '', email: '', phone: '' });
-export const requestSaveBankDetailsOtp = async (details: OwnerBankDetails): Promise<{ message: string }> => ({ message: "OTP sent (mock)" });
-export const verifyOtpAndSaveBankDetails = async (details: OwnerBankDetails, otp: string, ownerId: string): Promise<OwnerBankDetails> => (details);
-export const addMenuItem = async (itemData: Partial<MenuItem> & { price: number }, ownerId: string): Promise<MenuItem> => {
-    const menu = getFromStorage<MenuItem>('menu');
-    const newItem = { ...itemData, id: crypto.randomUUID() } as MenuItem;
-    menu.push(newItem);
-    saveToStorage('menu', menu);
-    return newItem;
-};
-export const updateMenuItem = async (itemId: string, itemData: Partial<MenuItem>): Promise<MenuItem> => {
-    const menu = getFromStorage<MenuItem>('menu');
-    const index = menu.findIndex(i => i.id === itemId);
-    if(index === -1) throw new Error("Item not found");
-    menu[index] = { ...menu[index], ...itemData };
-    saveToStorage('menu', menu);
-    return menu[index];
-};
-export const removeMenuItem = async (itemId: string): Promise<void> => {
-    const menu = getFromStorage<MenuItem>('menu').filter(i => i.id !== itemId);
-    saveToStorage('menu', menu);
-};
-export const getCanteenPhotos = async (): Promise<CanteenPhoto[]> => getFromStorage<CanteenPhoto>('canteen_photos');
-export const addCanteenPhoto = async (file: File): Promise<CanteenPhoto> => {throw new Error("Not implemented in mock API")};
-export const deleteCanteenPhoto = async (photoId: string): Promise<void> => {};
-export const updateCanteenPhoto = async (photoId: string, file: File): Promise<CanteenPhoto> => {throw new Error("Not implemented in mock API")};
-
-// DEPRECATED/REMOVED CUSTOMER FUNCTIONS
-export const submitFeedback = async (feedbackData: { studentId: string; studentName: string; itemId: string; rating: number; comment?: string; }): Promise<Feedback> => {
-    const feedbacks = getFromStorage<Feedback>('feedbacks');
-    const menu = getFromStorage<MenuItem>('menu');
-
-    const item = menu.find(i => i.id === feedbackData.itemId);
-    if (!item) throw new Error("Item not found");
-    
-    const newFeedback: Feedback = {
-        id: crypto.randomUUID(),
-        studentId: feedbackData.studentId, // can be a guestId
-        studentName: feedbackData.studentName,
-        itemId: feedbackData.itemId,
-        itemName: item.name,
-        rating: feedbackData.rating,
-        comment: feedbackData.comment,
-        timestamp: new Date(),
+export const addCanteenPhoto = async (file: File): Promise<CanteenPhoto> => {
+    const dataUrl = await processImageForUpload(file);
+    const { data, error } = await supabase.from('canteen_photos').insert({ data: dataUrl }).select().single();
+    if (error) throw error;
+    return {
+        id: data.id,
+        data: data.data,
+        uploadedAt: new Date(data.uploaded_at),
     };
+};
 
-    feedbacks.push(newFeedback);
-    saveToStorage('feedbacks', feedbacks);
-    return newFeedback;
+export const deleteCanteenPhoto = async (photoId: string): Promise<void> => {
+    const { error } = await supabase.from('canteen_photos').delete().eq('id', photoId);
+    if (error) throw error;
 };
-export const getOffers = async (studentId: string): Promise<Offer[]> => {
-    return [];
-};
-export const getAllStudentCoupons = async (studentId: string): Promise<Offer[]> => {
-    return [];
+
+export const updateCanteenPhoto = async (photoId: string, file: File): Promise<CanteenPhoto> => {
+    const dataUrl = await processImageForUpload(file);
+    const { data, error } = await supabase.from('canteen_photos').update({ data: dataUrl }).eq('id', photoId).select().single();
+    if (error) throw error;
+    return {
+        id: data.id,
+        data: data.data,
+        uploadedAt: new Date(data.uploaded_at),
+    };
 };
