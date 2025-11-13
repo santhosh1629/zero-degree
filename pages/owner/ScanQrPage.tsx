@@ -99,12 +99,29 @@ const ScanQrPage: React.FC = () => {
             {scannedOrder && (
                 <div className="text-left bg-gray-700/50 p-4 rounded-lg mt-6 text-gray-200">
                     <p><strong>Order ID:</strong> ...{scannedOrder.id.slice(-8)}</p>
-                    <p><strong>Customer:</strong> {scannedOrder.studentName}</p>
-                    <p><strong>Items:</strong></p>
-                    <ul className="list-disc list-inside ml-4">
-                        {scannedOrder.items.map(item => <li key={item.id}>{item.name} x {item.quantity}</li>)}
-                    </ul>
-                    <p className="font-bold mt-2">Total: ₹{scannedOrder.totalAmount.toFixed(2)}</p>
+                    <p className="mb-3"><strong>Customer:</strong> {scannedOrder.studentName}</p>
+                    
+                    <h4 className="font-semibold text-lg border-b border-gray-600 pb-1 mb-2">Ordered Items</h4>
+                    <div className="space-y-2 mb-3">
+                        {scannedOrder.items.map(item => (
+                            <div key={item.id} className="flex justify-between items-center text-sm">
+                                <div>
+                                    <p className="text-gray-200 font-medium">{item.name}</p>
+                                    <p className="text-gray-400 text-xs">
+                                        {item.quantity} x ₹{item.price.toFixed(2)}
+                                    </p>
+                                </div>
+                                <span className="font-semibold text-gray-100">
+                                    ₹{(item.price * item.quantity).toFixed(2)}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="border-t border-gray-600 pt-2 flex justify-between items-center font-bold text-lg">
+                        <span className="text-white">Total Amount:</span>
+                        <span className="text-green-300">₹{scannedOrder.totalAmount.toFixed(2)}</span>
+                    </div>
                 </div>
             )}
             <button onClick={handleReset} className="w-full mt-6 bg-gray-700 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-600 transition-colors">

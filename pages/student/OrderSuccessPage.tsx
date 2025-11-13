@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { QRCodeSVG as QRCode } from 'qrcode.react';
@@ -184,12 +185,6 @@ const OrderSuccessPage: React.FC = () => {
                 <span>Subtotal</span>
                 <span>₹{subtotal.toFixed(2)}</span>
             </div>
-            {order.discountAmount && (
-                <div className="flex justify-between text-green-400">
-                    <span>Discount ({order.couponCode})</span>
-                    <span>- ₹{order.discountAmount.toFixed(2)}</span>
-                </div>
-            )}
             <div className="flex justify-between font-bold font-heading text-lg mt-1">
                 <span>Total Paid</span>
                 <span>₹{order.totalAmount.toFixed(2)}</span>

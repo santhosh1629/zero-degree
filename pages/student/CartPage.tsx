@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { CartItem, Offer } from '../../types';
+import type { CartItem } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-import { placeOrder, getOffers, createPaymentRecord } from '../../services/mockApi';
+import { placeOrder, createPaymentRecord } from '../../services/mockApi';
 
 declare const Razorpay: any;
 
@@ -17,9 +18,6 @@ const saveCartToStorage = (cart: CartItem[]) => {
 
 const CartPage: React.FC = () => {
     const [cart, setCart] = useState<CartItem[]>(getCartFromStorage());
-    const [couponCode, setCouponCode] = useState('');
-    const [appliedCoupon, setAppliedCoupon] = useState<Offer | null>(null);
-    const [couponError, setCouponError] = useState('');
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
     
     const { user, loading, promptForPhone, updateUser } = useAuth();
@@ -58,42 +56,7 @@ const CartPage: React.FC = () => {
     
     const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
     
-    const discountAmount = useMemo(() => {
-        if (!appliedCoupon) return 0;
-        if (appliedCoupon.discountType === 'fixed') {
-            return Math.min(subtotal, appliedCoupon.discountValue);
-        }
-        if (appliedCoupon.discountType === 'percentage') {
-            return (subtotal * appliedCoupon.discountValue) / 100;
-        }
-        return 0;
-    }, [subtotal, appliedCoupon]);
-    
-    const totalAmount = subtotal - discountAmount;
-
-    const handleApplyCoupon = async () => {
-        if (!user || !couponCode.trim()) return;
-        setCouponError('');
-        try {
-            const offers = await getOffers(user.id);
-            const foundOffer = offers.find(o => o.code.toUpperCase() === couponCode.toUpperCase());
-            if (foundOffer) {
-                setAppliedCoupon(foundOffer);
-                window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Coupon Applied!', type: 'coupon-success' } }));
-            } else {
-                setCouponError('Invalid or expired coupon code.');
-                 window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Invalid Coupon!', type: 'coupon-error' } }));
-            }
-        } catch (error) {
-            setCouponError('Could not verify coupon.');
-        }
-    };
-    
-    const handleRemoveCoupon = () => {
-        setAppliedCoupon(null);
-        setCouponCode('');
-        setCouponError('');
-    };
+    const totalAmount = subtotal;
 
     const handleRealOrderPlacement = async (paymentId: string) => {
         if (!user) return;
@@ -112,8 +75,6 @@ const CartPage: React.FC = () => {
                 studentName: `${user.username} (Seat: ${seatNumber})`,
                 items: cart.map(({ id, name, quantity, price, notes, imageUrl }) => ({ id, name, quantity, price, notes, imageUrl })),
                 totalAmount,
-                couponCode: appliedCoupon?.code,
-                discountAmount: discountAmount,
             };
             const order = await placeOrder(orderPayload);
             await createPaymentRecord({
@@ -237,26 +198,8 @@ const CartPage: React.FC = () => {
                     <div className="bg-surface/50 backdrop-blur-lg border border-surface-light rounded-lg p-6 h-fit sticky top-24 shadow-xl">
                         <h2 className="text-2xl font-bold font-heading mb-4">Summary</h2>
                         
-                        <div className="space-y-2 border-b border-white/20 pb-4">
-                            {appliedCoupon ? (
-                                <div className="flex justify-between items-center bg-green-500/10 p-2 rounded-md">
-                                    <p className="text-sm">Coupon <span className="font-bold font-mono">{appliedCoupon.code}</span> applied!</p>
-                                    <button onClick={handleRemoveCoupon} className="text-xs font-bold text-red-400">&times;</button>
-                                </div>
-                            ) : (
-                                <div>
-                                    <div className="flex gap-2">
-                                        <input type="text" value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())} placeholder="Enter Coupon Code" className="flex-grow px-3 py-2 text-sm bg-black/30 border border-white/30 rounded-md focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-white/50" />
-                                        <button onClick={handleApplyCoupon} className="bg-accent text-white font-bold px-4 rounded-md hover:bg-accent-dark transition-colors">Apply</button>
-                                    </div>
-                                    {couponError && <p className="text-red-400 text-xs mt-1">{couponError}</p>}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="space-y-2 border-t border-white/20 pt-4">
+                        <div className="space-y-2 pt-4">
                             <div className="flex justify-between"><span>Subtotal</span><span>₹{subtotal.toFixed(2)}</span></div>
-                            {discountAmount > 0 && <div className="flex justify-between text-green-400"><span>Discount</span><span>- ₹{discountAmount.toFixed(2)}</span></div>}
                             <div className="flex justify-between font-bold font-heading text-xl pt-2 mt-2 border-t border-white/20"><span>Total</span><span>₹{totalAmount.toFixed(2)}</span></div>
                         </div>
 

@@ -1,5 +1,6 @@
 
 
+
 export enum Role {
   STUDENT = 'STUDENT',
   CANTEEN_OWNER = 'CANTEEN_OWNER',
@@ -21,6 +22,7 @@ export interface User {
   resetOtpExpires?: Date;
   canteenName?: string;
   idProofUrl?: string;
+  // Fix: Add loyaltyPoints to User interface
   loyaltyPoints?: number;
 }
 
@@ -80,15 +82,13 @@ export interface Order {
   qrToken: string;
   timestamp: Date;
   orderType: 'real';
-  couponCode?: string;
-  discountAmount?: number;
-  rewardCoupon?: Offer;
   canteenOwnerPhone?: string;
-  pointsEarned?: number;
-  pointsSpent?: number;
   refundAmount?: number;
   collectedByStaffId?: string;
   seatNumber?: string;
+  // Fix: Add couponCode and discountAmount to Order interface
+  couponCode?: string;
+  discountAmount?: number;
 }
 
 export interface SalesSummary {
@@ -127,9 +127,9 @@ export interface StudentProfile {
   phone: string;
   totalOrders: number;
   lifetimeSpend: number;
-  milestoneRewardsUnlocked: number[]; // e.g., [200, 500] for unlocked milestones
   favoriteItemsCount: number;
-  loyaltyPoints: number;
+  // Fix: Add loyaltyPoints to StudentProfile interface
+  loyaltyPoints?: number;
 }
 
 export interface Reward {

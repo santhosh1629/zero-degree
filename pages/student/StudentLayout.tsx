@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import DynamicBackground from '../../components/student/DynamicBackground';
@@ -5,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getStudentOrders } from '../../services/mockApi';
 import { Order, OrderStatus } from '../../types';
 
-type ToastType = 'cart-add' | 'cart-warn' | 'stock-out' | 'coupon-success' | 'coupon-error' | 'payment-success' | 'payment-error' | 'logout-success';
+type ToastType = 'cart-add' | 'cart-warn' | 'stock-out' | 'payment-success' | 'payment-error' | 'logout-success';
 interface ToastInfo {
   id: number;
   message: string;
@@ -94,8 +95,6 @@ const CartIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w
 const HistoryIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>);
 // Drawer Icons
 const ProfileIcon: React.FC<{className?: string}> = ({ className = "h-5 w-5 mr-3" }) => (<svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>);
-const CouponIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>;
-const RewardsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>;
 const FeedbackDrawerIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>);
 const LogoutIcon: React.FC<{className?: string}> = ({ className = "h-6 w-6" }) => (<svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>);
 
@@ -190,8 +189,6 @@ const CustomerLayout: React.FC = () => {
   
   const drawerNavLinks = [
     { to: "/customer/profile", icon: <ProfileIcon />, label: "Profile", protected: true },
-    { to: "/customer/coupons", icon: <CouponIcon />, label: "My Coupons", protected: true },
-    { to: "/customer/rewards", icon: <RewardsIcon />, label: "Rewards", protected: true },
     { to: "/customer/feedback", icon: <FeedbackDrawerIcon />, label: "Feedback", protected: true },
   ];
   
@@ -260,8 +257,6 @@ const CustomerLayout: React.FC = () => {
       case 'cart-add': return { bg: 'bg-toast-cart-add', icon: <div className="animate-cart-icon-slide"><ToastCartIcon/></div>, glow: 'shadow-[0_0_20px_rgba(190,24,93,0.5)]' };
       case 'cart-warn': return { bg: 'bg-toast-cart-warn', icon: '⚠️', glow: 'shadow-[0_0_20px_rgba(252,163,17,0.5)]' };
       case 'stock-out': return { bg: 'bg-toast-stock-out', icon: '❌', glow: 'shadow-[0_0_20px_rgba(185,28,28,0.5)]' };
-      case 'coupon-success': return { bg: 'bg-toast-coupon-success', icon: '🎉', glow: 'shadow-[0_0_20px_rgba(34,197,94,0.5)]' };
-      case 'coupon-error': return { bg: 'bg-toast-coupon-error', icon: <div className="animate-shake-toast-icon">❌</div>, glow: 'shadow-[0_0_20px_rgba(239,68,68,0.4)]' };
       case 'payment-success': return { bg: 'bg-toast-payment-success backdrop-blur-md', icon: <AnimatedCheckIcon />, glow: 'shadow-[0_0_20px_rgba(34,197,94,0.6)]' };
       case 'payment-error': return { bg: 'bg-toast-payment-error', icon: '🚫', glow: 'shadow-[0_0_20px_rgba(185,28,28,0.5)]' };
       case 'logout-success': return { bg: 'bg-gradient-to-r from-violet-600 to-red-600', icon: '👋', glow: 'shadow-[0_0_20px_rgba(190,24,93,0.5)]' };
@@ -407,8 +402,14 @@ const CustomerLayout: React.FC = () => {
         {/* Floating Cart Button */}
         {location.pathname !== '/customer/cart' && cartCount > 0 && (
             <button
-                onClick={(e) => handleProtectedLinkClick(e, '/customer/cart')}
-                className="fixed bottom-20 sm:bottom-8 left-1/2 -translate-x-1/2 z-40 h-16 w-16 rounded-full bg-energetic-gradient shadow-lg flex items-center justify-center text-3xl animate-fade-in-up transform transition-transform hover:scale-110 active:scale-95 group"
+                onClick={() => {
+                    if (!user) {
+                        promptForPhone(() => navigate('/customer/cart'));
+                    } else {
+                        navigate('/customer/cart');
+                    }
+                }}
+                className="fixed bottom-20 sm:bottom-8 right-4 sm:right-8 z-40 h-16 w-16 rounded-full bg-accent text-white shadow-lg flex items-center justify-center text-3xl animate-fade-in-up transform transition-transform duration-200 ease-in-out hover:scale-110 active:scale-90 group"
                 aria-label={`View cart with ${cartCount} items`}
             >
                 <span className="group-hover:animate-shake">🛒</span>

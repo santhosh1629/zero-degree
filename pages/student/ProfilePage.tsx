@@ -1,14 +1,9 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { getStudentProfile } from '../../services/mockApi';
 import type { StudentProfile } from '../../types';
 import { Link } from 'react-router-dom';
-
-const MILESTONES = [
-    { spend: 200, value: 10 },
-    { spend: 500, value: 30 },
-    { spend: 1000, value: 50 },
-];
 
 const StatCard: React.FC<{ icon: string; label: string; value: string | number }> = ({ icon, label, value }) => (
     <div className="bg-black/40 backdrop-blur-lg border border-white/20 p-4 rounded-xl flex items-center gap-4 text-white">
@@ -21,58 +16,6 @@ const StatCard: React.FC<{ icon: string; label: string; value: string | number }
         </div>
     </div>
 );
-
-const MilestoneRewards: React.FC<{ profile: StudentProfile }> = ({ profile }) => {
-    const nextMilestone = useMemo(() => {
-        return MILESTONES.find(m => !profile.milestoneRewardsUnlocked.includes(m.spend));
-    }, [profile.milestoneRewardsUnlocked]);
-
-    const lastMilestoneSpend = useMemo(() => {
-        if (!nextMilestone) return MILESTONES[MILESTONES.length - 1]?.spend || 0;
-        const currentMilestoneIndex = MILESTONES.findIndex(m => m.spend === nextMilestone.spend);
-        return currentMilestoneIndex > 0 ? MILESTONES[currentMilestoneIndex - 1].spend : 0;
-    }, [nextMilestone]);
-
-    const progressPercentage = useMemo(() => {
-        if (!nextMilestone) return 100;
-        const range = nextMilestone.spend - lastMilestoneSpend;
-        const progressInRange = profile.lifetimeSpend - lastMilestoneSpend;
-        return Math.max(0, Math.min(100, (progressInRange / range) * 100));
-    }, [profile.lifetimeSpend, nextMilestone, lastMilestoneSpend]);
-
-    return (
-        <div className="bg-black/50 backdrop-blur-lg border border-white/20 p-6 rounded-2xl">
-            <h2 className="text-xl font-bold font-heading mb-4">Milestone Rewards</h2>
-            {nextMilestone ? (
-                <>
-                    <div className="flex justify-between items-end mb-2 text-sm">
-                        <span className="font-semibold text-white/90">Lifetime Spent: ₹{profile.lifetimeSpend.toFixed(0)}</span>
-                        <span className="font-bold text-primary">Next Reward at ₹{nextMilestone.spend}</span>
-                    </div>
-                    <div className="w-full bg-gray-700 rounded-full h-4 border border-gray-600">
-                        <div className="bg-primary h-4 rounded-full transition-all duration-500" style={{ width: `${progressPercentage}%` }}></div>
-                    </div>
-                </>
-            ) : (
-                <p className="text-center text-green-400 font-semibold bg-green-500/20 p-3 rounded-md">🎉 You've unlocked all milestone rewards!</p>
-            )}
-
-            <div className="mt-6">
-                <h3 className="font-semibold mb-3 text-white/90">Unlocked Rewards:</h3>
-                {MILESTONES.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                        {MILESTONES.map(m => (
-                             <span key={m.spend} className={`text-xs font-bold py-1 px-3 rounded-full border ${profile.milestoneRewardsUnlocked.includes(m.spend) ? 'bg-green-500/20 text-green-300 border-green-400/50' : 'bg-gray-700/50 text-gray-400 border-gray-600'}`}>
-                                ₹{m.value} OFF {profile.milestoneRewardsUnlocked.includes(m.spend) ? '✅' : '🔒'}
-                            </span>
-                        ))}
-                    </div>
-                ) : <p className="text-sm text-gray-400">No milestone rewards available yet.</p>}
-            </div>
-        </div>
-    );
-};
-
 
 const ProfilePage: React.FC = () => {
     const { user, loading: authLoading, promptForPhone, updateUser } = useAuth();
@@ -157,26 +100,8 @@ const ProfilePage: React.FC = () => {
                     <StatCard icon="🧾" label="Total Orders" value={profile.totalOrders} />
                     <StatCard icon="💸" label="Lifetime Spend" value={`₹${profile.lifetimeSpend.toFixed(0)}`} />
                     <StatCard icon="❤️" label="Favorites" value={profile.favoriteItemsCount} />
-                    <div className="sm:col-span-2 lg:col-span-3">
-                         <div className="bg-accent/40 backdrop-blur-lg border border-white/20 p-4 rounded-xl flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-4">
-                                <div className="bg-accent text-white p-3 rounded-full text-2xl">
-                                    ⭐
-                                </div>
-                                <div>
-                                    <p className="text-sm text-white/80">Loyalty Points</p>
-                                    <p className="text-2xl font-bold font-heading text-white">{profile.loyaltyPoints}</p>
-                                </div>
-                            </div>
-                            <Link to="/customer/rewards" className="bg-accent text-white font-bold py-2 px-4 rounded-lg hover:bg-accent-dark transition-colors">
-                                Redeem
-                            </Link>
-                        </div>
-                    </div>
                 </div>
             </div>
-
-            <MilestoneRewards profile={profile} />
 
             {/* Personal Info Section */}
             <div className="bg-black/50 backdrop-blur-lg border border-white/20 p-6 rounded-2xl">

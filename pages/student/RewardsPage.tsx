@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { getRewards, getStudentProfile, redeemReward } from '../../services/mockApi';
+// Fix: Import 'getAllRewardsForOwner' as 'getRewards' is not exported. Import 'redeemReward'.
+import { getAllRewardsForOwner, getStudentProfile, redeemReward } from '../../services/mockApi';
 import type { Reward, StudentProfile } from '../../types';
 import { Link } from 'react-router-dom';
 
@@ -79,7 +80,7 @@ const RewardsPage: React.FC = () => {
         try {
             setLoading(true);
             const [rewardsData, profileData] = await Promise.all([
-                getRewards(),
+                getAllRewardsForOwner(),
                 getStudentProfile(user.id)
             ]);
             setRewards(rewardsData);

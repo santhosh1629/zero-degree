@@ -25,11 +25,13 @@ export const mapDbOrderToAppOrder = (dbOrder: any): Order => {
         qrToken: dbOrder.qr_token,
         timestamp: new Date(dbOrder.timestamp),
         orderType: dbOrder.order_type,
-        couponCode: dbOrder.coupon_code,
-        discountAmount: dbOrder.discount_amount,
+        canteenOwnerPhone: dbOrder.canteen_owner_phone,
         refundAmount: dbOrder.refund_amount,
         collectedByStaffId: dbOrder.collected_by_staff_id ? String(dbOrder.collected_by_staff_id) : undefined,
         seatNumber: seatNumber,
+        // Fix: Add mapping for couponCode and discountAmount
+        couponCode: dbOrder.coupon_code,
+        discountAmount: dbOrder.discount_amount,
     };
 };
 
@@ -45,7 +47,6 @@ const mapDbUserToAppUser = (dbUser: any): User => ({
     isFirstLogin: dbUser.is_first_login,
     canteenName: dbUser.canteen_name,
     idProofUrl: dbUser.id_proof_url,
-    loyaltyPoints: dbUser.loyalty_points,
 });
 
 const mapDbMenuToAppMenu = (dbMenu: any): MenuItem => ({
@@ -182,7 +183,7 @@ export const toggleFavoriteItem = async (studentId: string, itemId: string): Pro
     }
 };
 
-export const placeOrder = async (orderData: { studentId: string; studentName: string; items: any[]; totalAmount: number; couponCode?: string, discountAmount?: number }): Promise<Order> => {
+export const placeOrder = async (orderData: { studentId: string; studentName: string; items: any[]; totalAmount: number; }): Promise<Order> => {
     const tempQrToken = `temp-id-${Date.now()}`;
 
     const { data, error } = await supabase.from('orders').insert([
@@ -194,8 +195,6 @@ export const placeOrder = async (orderData: { studentId: string; studentName: st
             status: OrderStatusEnum.PENDING,
             order_type: 'real',
             qr_token: tempQrToken,
-            coupon_code: orderData.couponCode,
-            discount_amount: orderData.discountAmount,
         }
     ]).select('id').single();
 
@@ -662,17 +661,6 @@ export const deleteOffer = async (offerId: string): Promise<void> => {
     if (error) throw error;
 };
 
-export const getOffers = async (studentId: string): Promise<Offer[]> => {
-    const { data, error } = await supabase
-        .from('offers')
-        .select('*')
-        .or(`student_id.eq.${studentId},student_id.is.null`)
-        .eq('is_used', false)
-        .eq('is_active', true);
-    if (error) throw error;
-    return data.map(mapDbOfferToAppOffer);
-};
-
 export const getAllStudentCoupons = async (studentId: string): Promise<Offer[]> => {
     const { data, error } = await supabase.from('offers').select('*').eq('student_id', studentId);
     if (error) throw error;
@@ -692,26 +680,18 @@ export const getStudentProfile = async (studentId: string): Promise<StudentProfi
     const totalOrders = orders.length;
     const lifetimeSpend = orders.reduce((sum, order) => sum + Number(order.total_amount), 0);
 
-    const MILESTONES = [200, 500, 1000];
-    const milestoneRewardsUnlocked = MILESTONES.filter(m => lifetimeSpend >= m);
-
     return {
         id: studentId,
         name: userData.username,
         phone: userData.phone,
-        loyaltyPoints: userData.loyalty_points,
         totalOrders,
         lifetimeSpend,
         favoriteItemsCount: favoritesCount ?? 0,
-        milestoneRewardsUnlocked,
+        // Fix: Add loyaltyPoints to returned profile
+        loyaltyPoints: userData.loyalty_points,
     };
 };
 
-export const getRewards = async (): Promise<Reward[]> => {
-    const { data, error } = await supabase.from('rewards').select('*').eq('is_active', true);
-    if (error) throw error;
-    return data.map(mapDbRewardToAppReward);
-};
 export const getAllRewardsForOwner = async (): Promise<Reward[]> => {
     const { data, error } = await supabase.from('rewards').select('*');
     if (error) throw error;
@@ -747,35 +727,56 @@ export const deleteReward = async (rewardId: string): Promise<void> => {
     if (error) throw error;
 };
 
+// Fix: Add redeemReward function to handle reward redemption logic.
 export const redeemReward = async (studentId: string, rewardId: string): Promise<Offer> => {
-    const { data: reward, error: rewardError } = await supabase.from('rewards').select('*').eq('id', rewardId).single();
-    if (rewardError || !reward) throw new Error('Reward not found.');
+    // 1. Fetch reward and user data in parallel
+    const { data: rewardData, error: rewardError } = await supabase.from('rewards').select('*').eq('id', rewardId).single();
+    if (rewardError || !rewardData) throw new Error('Reward not found or could not be fetched.');
 
-    const { data: user, error: userError } = await supabase.from('users').select('loyalty_points').eq('id', studentId).single();
-    if (userError || !user) throw new Error('User not found.');
+    const { data: userData, error: userError } = await supabase.from('users').select('loyalty_points').eq('id', studentId).single();
+    if (userError || !userData) throw new Error('User not found or could not be fetched.');
+
+    // 2. Check if user can afford it
+    if ((userData.loyalty_points || 0) < rewardData.points_cost) {
+        throw new Error('You do not have enough points to redeem this reward.');
+    }
+    if (!rewardData.is_active) {
+        throw new Error('This reward is currently not active.');
+    }
+    if (rewardData.expiry_date && new Date(rewardData.expiry_date) < new Date()) {
+        throw new Error('This reward has expired.');
+    }
+
+    // 3. Deduct points
+    const newPoints = (userData.loyalty_points || 0) - rewardData.points_cost;
+    const { error: updateUserError } = await supabase.from('users').update({ loyalty_points: newPoints }).eq('id', studentId);
+    if (updateUserError) throw new Error('Failed to update your points balance. Please try again.');
+
+    // 4. Create a new coupon (offer)
+    const newCouponCode = `${rewardData.title.substring(0, 4).toUpperCase().replace(/\s/g, '')}${Date.now().toString().slice(-5)}`;
     
-    if (user.loyalty_points < reward.points_cost) throw new Error('Not enough points to redeem this reward.');
-
-    const newPoints = user.loyalty_points - reward.points_cost;
-    const { error: updatePointsError } = await supabase.from('users').update({ loyalty_points: newPoints }).eq('id', studentId);
-    if (updatePointsError) throw new Error('Failed to update points. Please try again.');
-
-    const newCouponCode = `${reward.title.substring(0, 4).toUpperCase()}${Date.now().toString().slice(-5)}`;
-    const { data: newOffer, error: offerError } = await supabase.from('offers').insert({
-        code: newCouponCode,
-        description: `Redeemed: ${reward.title}`,
-        discount_type: reward.discount.type,
-        discount_value: reward.discount.value,
-        is_used: false,
+    const offerPayload = {
         student_id: studentId,
+        code: newCouponCode,
+        description: `Reward: ${rewardData.title}`,
+        discount_type: rewardData.discount.type,
+        discount_value: rewardData.discount.value,
         is_reward: true,
         is_active: true,
+        is_used: false,
+        usage_count: 1,
         redeemed_count: 0,
-    }).select().single();
+    };
 
-    if (offerError) throw new Error('Failed to create coupon from reward.');
+    const { data: newOfferData, error: offerError } = await supabase.from('offers').insert(offerPayload).select().single();
+    if (offerError || !newOfferData) {
+        // Rollback point deduction if coupon creation fails
+        await supabase.from('users').update({ loyalty_points: userData.loyalty_points }).eq('id', studentId);
+        throw new Error('Failed to create your coupon. Please contact support.');
+    }
     
-    return mapDbOfferToAppOffer(newOffer);
+    // 5. Return the new offer
+    return mapDbOfferToAppOffer(newOfferData);
 };
 
 export const getOwnerBankDetails = async (ownerId: string): Promise<OwnerBankDetails> => {

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useNavigate } from 'react-router-dom';
@@ -80,12 +81,6 @@ const OrderCard: React.FC<{ order: Order; onReorder: (order: Order) => void; }> 
                                 ))}
                             </div>
                             <div className="border-t border-surface-light my-2"></div>
-                            {order.discountAmount && (
-                                <div className="flex justify-between text-sm text-green-400">
-                                    <span>Discount ({order.couponCode})</span>
-                                    <span>- ₹{(order.discountAmount || 0).toFixed(2)}</span>
-                                </div>
-                            )}
                              <div className="flex justify-between font-bold font-heading text-textPrimary">
                                 <span>Total</span>
                                 <span>₹{(order.totalAmount || 0).toFixed(2)}</span>

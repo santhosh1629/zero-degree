@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -124,8 +125,6 @@ const AppRoutes = () => {
                 <Route path="history" element={<OrderHistoryPage />} />
                 <Route path="feedback" element={<FeedbackPage />} />
                 <Route path="profile" element={<ProfilePage />} />
-                <Route path="coupons" element={<CouponsPage />} />
-                <Route path="rewards" element={<RewardsPage />} />
             </Route>
 
             {/* Canteen Owner Routes */}
