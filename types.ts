@@ -1,6 +1,3 @@
-
-
-
 export enum Role {
   STUDENT = 'STUDENT',
   CANTEEN_OWNER = 'CANTEEN_OWNER',

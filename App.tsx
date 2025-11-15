@@ -1,4 +1,5 @@
 
+
 import React, { useEffect, useState } from 'react';
 import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -166,6 +167,7 @@ const AppRoutes = () => {
         </Routes>
     );
 }
+
 
 const App: React.FC = () => {
   const [dbConnectionError, setDbConnectionError] = useState<string | null>(null);

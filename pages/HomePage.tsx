@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DynamicBackground from '../components/student/DynamicBackground';
 import Typewriter from 'typewriter-effect';
@@ -44,12 +44,70 @@ const ParottaUfo = () => (
     </svg>
 );
 
+const CopyrightModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+    const [isVisible, setIsVisible] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            setIsVisible(true);
+        } else {
+            // Delay hiding to allow for fade-out animation
+            const timer = setTimeout(() => setIsVisible(false), 300);
+            return () => clearTimeout(timer);
+        }
+    }, [isOpen]);
+
+    if (!isVisible) return null;
+
+    return (
+        <div 
+            className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}
+            onClick={onClose}
+        >
+            <div 
+                className={`bg-surface border border-surface-light rounded-2xl shadow-2xl p-6 text-center text-textPrimary max-w-sm w-full transition-transform duration-300 ${isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <p className="text-lg font-semibold">
+                    © 2025 My Canteen
+                </p>
+                <p className="mt-2 text-sm text-textSecondary">
+                    Developed by SANTHOSH P.
+                </p>
+                <p className="mt-1 text-xs text-textSecondary/70">
+                    All rights reserved.
+                </p>
+                <button 
+                    onClick={onClose}
+                    className="mt-6 w-full bg-primary text-background font-bold py-2 px-4 rounded-lg hover:bg-primary-dark transition-colors"
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    );
+};
+
 
 const HomePage: React.FC = () => {
     const navigate = useNavigate();
+    const [isCopyrightOpen, setIsCopyrightOpen] = useState(false);
 
     return (
         <>
+        <button
+            onClick={() => setIsCopyrightOpen(true)}
+            className="fixed top-1 left-1 z-[100] h-6 w-6 rounded-full bg-black/30 backdrop-blur-sm text-textPrimary/70 text-xs font-bold flex items-center justify-center transition-all duration-300 hover:scale-125 hover:bg-primary hover:text-background focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
+            aria-label="Show copyright information"
+            style={{
+            width: '24px', // Approx 2mm is very small, using a more practical 24px
+            height: '24px',
+            fontSize: '12px',
+            }}
+        >
+            ©
+        </button>
+        <CopyrightModal isOpen={isCopyrightOpen} onClose={() => setIsCopyrightOpen(false)} />
         <div className="min-h-screen w-full flex flex-col items-center justify-center bg-background text-textPrimary overflow-hidden p-4">
             <DynamicBackground gradientClassName="bg-home-violet-gradient" />
             <div className="absolute inset-0 z-10 bg-background/60"></div>
