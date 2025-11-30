@@ -1,3 +1,4 @@
+
 // This file now contains functions to interact with the Supabase backend.
 
 import { supabase } from './supabase';
@@ -29,7 +30,6 @@ export const mapDbOrderToAppOrder = (dbOrder: any): Order => {
         refundAmount: dbOrder.refund_amount,
         collectedByStaffId: dbOrder.collected_by_staff_id ? String(dbOrder.collected_by_staff_id) : undefined,
         seatNumber: seatNumber,
-        // Fix: Add mapping for couponCode and discountAmount
         couponCode: dbOrder.coupon_code,
         discountAmount: dbOrder.discount_amount,
     };
@@ -111,14 +111,19 @@ export const getOwnerStatus = async (): Promise<{ isOnline: boolean }> => {
 }
 
 export const getMenu = async (studentId?: string): Promise<MenuItem[]> => {
-    const { data: menuData, error: menuError } = await supabase.from('menu').select('*');
+    // Optimization: Select only required fields to reduce payload size significantly
+    const { data: menuData, error: menuError } = await supabase
+        .from('menu')
+        .select('id, name, price, is_available, image_url, description, emoji, average_rating, favorite_count, is_combo, combo_items');
+        
     if (menuError) throw menuError;
-    if (!menuData) return []; // Defensive check for null data
+    if (!menuData) return [];
 
     const mappedMenu = menuData.map(mapDbMenuToAppMenu);
 
     if (!studentId) return mappedMenu;
     
+    // Optimized: Fetch only item_ids to keep payload small
     const { data: favoritesData, error: favoritesError } = await supabase
         .from('student_favorites')
         .select('item_id')
@@ -129,12 +134,7 @@ export const getMenu = async (studentId?: string): Promise<MenuItem[]> => {
         return mappedMenu;
     }
     
-    if (!favoritesData) {
-        // Handle case where data is null but no error, to prevent crash on .map
-        return mappedMenu;
-    }
-
-    const favoriteIds = new Set(favoritesData.map(f => f.item_id));
+    const favoriteIds = new Set(favoritesData?.map(f => f.item_id) || []);
     
     return mappedMenu.map(item => ({
         ...item,
@@ -152,7 +152,7 @@ export const getMenuItemById = async (itemId: string, studentId?: string): Promi
     if (studentId) {
         const { data: favorite, error: favError } = await supabase
             .from('student_favorites')
-            .select('*')
+            .select('id') // Only need ID to check existence
             .eq('student_id', studentId)
             .eq('item_id', itemId)
             .maybeSingle();
@@ -165,9 +165,10 @@ export const getMenuItemById = async (itemId: string, studentId?: string): Promi
 };
 
 export const toggleFavoriteItem = async (studentId: string, itemId: string): Promise<void> => {
+    // Check existence first
     const { data: existing, error } = await supabase
         .from('student_favorites')
-        .select('*')
+        .select('id')
         .eq('student_id', studentId)
         .eq('item_id', itemId)
         .maybeSingle();
@@ -201,11 +202,12 @@ export const placeOrder = async (orderData: { studentId: string; studentName: st
     if (error) throw error;
     
     const finalQrToken = data.id;
+    // Optimization: No need to fetch users joined data immediately on placement unless UI needs it
     const { data: updatedData, error: updateError } = await supabase
         .from('orders')
         .update({ qr_token: finalQrToken })
         .eq('id', data.id)
-        .select('*, users(username, phone)')
+        .select('*') 
         .single();
 
     if (updateError) throw updateError;
@@ -226,7 +228,7 @@ export const cancelStudentOrder = async (orderId: string, studentId: string): Pr
         .eq('id', orderId)
         .eq('student_id', studentId)
         .eq('status', OrderStatusEnum.PENDING)
-        .select('*, users(username, phone)')
+        .select('*')
         .single();
     
     if (error || !data) throw new Error("Order cannot be cancelled. It might be already in preparation.");
@@ -240,13 +242,12 @@ export const verifyQrCodeAndCollectOrder = async (qrToken: string, staffId: stri
 
     const { data: order, error: fetchError } = await supabase
         .from('orders')
-        .select('*, users(username, phone)')
+        .select('*')
         .eq('qr_token', qrToken)
         .single();
     
     if (fetchError || !order) {
-        console.error('QR Verification Error:', fetchError?.message || 'No order found or database error.');
-        throw new Error('Invalid or expired QR code. Please try again.');
+        throw new Error('Invalid or expired QR code.');
     }
     
     if (order.status === OrderStatusEnum.COLLECTED) {
@@ -254,12 +255,12 @@ export const verifyQrCodeAndCollectOrder = async (qrToken: string, staffId: stri
     }
     
     if (order.status !== OrderStatusEnum.PREPARED && order.status !== OrderStatusEnum.PENDING) {
-        throw new Error('This order cannot be collected (it may have been cancelled or is not ready).');
+        throw new Error('This order cannot be collected.');
     }
 
     const numericStaffId = parseInt(staffId.split('-')[0], 16);
     if (isNaN(numericStaffId)) {
-        throw new Error('Could not generate a valid numeric ID for the staff member.');
+        throw new Error('Invalid staff ID.');
     }
     
     const { data: updatedOrder, error: updateError } = await supabase
@@ -269,18 +270,17 @@ export const verifyQrCodeAndCollectOrder = async (qrToken: string, staffId: stri
             collected_by_staff_id: numericStaffId
         })
         .eq('id', order.id)
-        .select('*, users(username, phone)')
+        .select('*')
         .single();
     
     if (updateError) {
-        console.error('Order Update Error:', updateError.message);
-        throw new Error(updateError.message || 'Failed to update order status.');
+        throw new Error('Failed to update order status.');
     }
     return mapDbOrderToAppOrder(updatedOrder);
 };
 
 export const getOrderById = async(orderId: string): Promise<Order> => {
-    const { data, error } = await supabase.from('orders').select('*, users(username, phone)').eq('id', orderId).single();
+    const { data, error } = await supabase.from('orders').select('*').eq('id', orderId).single();
     if (error) throw error;
     return mapDbOrderToAppOrder(data);
 }
@@ -300,7 +300,7 @@ export const updateOrderSeatNumber = async (orderId: string, seatNumber: string)
         .from('orders')
         .update({ student_name: newStudentName })
         .eq('id', orderId)
-        .select('*, users(username, phone)')
+        .select('*')
         .single();
 
     if (error) throw error;
@@ -308,7 +308,11 @@ export const updateOrderSeatNumber = async (orderId: string, seatNumber: string)
 };
 
 export const getStudentOrders = async (studentId: string): Promise<Order[]> => {
-    const { data, error } = await supabase.from('orders').select('*, users(username, phone)').eq('student_id', studentId).order('timestamp', { ascending: false });
+    const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('student_id', studentId)
+        .order('timestamp', { ascending: false });
     if (error) throw error;
     return data.map(mapDbOrderToAppOrder);
 };
@@ -335,32 +339,13 @@ export const submitFeedback = async (feedbackData: { studentId: string; itemId: 
 // --- ADMIN / OWNER FUNCTIONS ---
 
 export const getAdminDashboardStats = async (): Promise<AdminStats> => {
-    const { count: totalUsers, error: usersError } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true });
-
-    const { count: totalCustomers, error: customersError } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true })
-        .eq('role', RoleEnum.STUDENT);
-    
-    const { count: totalOwners, error: ownersError } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true })
-        .eq('role', RoleEnum.CANTEEN_OWNER);
-        
-    const { count: pendingApprovals, error: pendingError } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true })
-        .eq('role', RoleEnum.CANTEEN_OWNER)
-        .eq('approval_status', 'pending');
-
-    const { count: totalFeedbacks, error: feedbacksError } = await supabase
-        .from('feedbacks')
-        .select('*', { count: 'exact', head: true });
+    const { count: totalUsers, error: usersError } = await supabase.from('users').select('*', { count: 'exact', head: true });
+    const { count: totalCustomers, error: customersError } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', RoleEnum.STUDENT);
+    const { count: totalOwners, error: ownersError } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', RoleEnum.CANTEEN_OWNER);
+    const { count: pendingApprovals, error: pendingError } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', RoleEnum.CANTEEN_OWNER).eq('approval_status', 'pending');
+    const { count: totalFeedbacks, error: feedbacksError } = await supabase.from('feedbacks').select('*', { count: 'exact', head: true });
 
     if (usersError || customersError || ownersError || pendingError || feedbacksError) {
-        console.error('Error fetching admin stats:', usersError || customersError || ownersError || pendingError || feedbacksError);
         throw new Error('Could not fetch admin dashboard stats.');
     }
 
@@ -377,12 +362,9 @@ export const updateAllMenuItemsAvailability = async (ownerId: string, isAvailabl
     const { error } = await supabase
         .from('menu')
         .update({ is_available: isAvailable })
-        .gte('price', 0);
+        .gte('price', 0); // Updates all rows safely
 
-    if (error) {
-        console.error("Failed to update menu availability:", error);
-        throw error;
-    }
+    if (error) throw error;
 };
 
 export const getPendingOwnerRequests = async (): Promise<User[]> => {
@@ -422,6 +404,7 @@ export const removeOwnerAccount = async (userId: string): Promise<{ success: boo
 };
 
 export const getOwnerOrders = async (): Promise<Order[]> => {
+    // Optimization: Avoid joining users if not strictly needed or handle nulls
     const { data, error } = await supabase.from('orders').select('*, users(username, phone)').order('timestamp', { ascending: false });
     if (error) throw error;
     return data.map(mapDbOrderToAppOrder);
@@ -489,7 +472,6 @@ export const getTodaysDetailedReport = async (): Promise<TodaysDetailedReport> =
 export const getSalesSummary = async (): Promise<SalesSummary> => {
      const { data, error } = await supabase.from('orders').select('timestamp, total_amount');
     if (error) throw error;
-    // This is a simplified client-side aggregation. For production, use DB functions (RPC).
     const weeklySales = new Map<string, number>();
     data.forEach(order => {
         const date = new Date(order.timestamp);
@@ -525,7 +507,6 @@ export const getFoodPopularityStats = async (): Promise<MenuItem[]> => {
     ]);
 
     if (menuError || feedbacksError || favoritesError) {
-        console.error("Error fetching popularity stats:", menuError || feedbacksError || favoritesError);
         throw new Error("Could not fetch popularity statistics.");
     }
     
@@ -604,11 +585,7 @@ export const getScanTerminalStaff = async (): Promise<User[]> => {
 };
 
 export const deleteScanTerminalStaff = async (userId: string): Promise<void> => {
-    const { error } = await supabase
-        .from('users')
-        .delete()
-        .eq('id', userId);
-    
+    const { error } = await supabase.from('users').delete().eq('id', userId);
     if (error) throw error;
 };
 
@@ -644,20 +621,13 @@ export const updateOffer = async (offerId: string, updatedData: Partial<Omit<Off
     if (updatedData.isActive !== undefined) dbPayload.is_active = updatedData.isActive;
     if (updatedData.usageCount !== undefined) dbPayload.usage_count = updatedData.usageCount;
 
-    const { error } = await supabase
-        .from('offers')
-        .update(dbPayload)
-        .eq('id', offerId);
+    const { error } = await supabase.from('offers').update(dbPayload).eq('id', offerId);
     
     if (error) throw error;
 };
 
 export const deleteOffer = async (offerId: string): Promise<void> => {
-    const { error } = await supabase
-        .from('offers')
-        .delete()
-        .eq('id', offerId);
-    
+    const { error } = await supabase.from('offers').delete().eq('id', offerId);
     if (error) throw error;
 };
 
@@ -687,7 +657,6 @@ export const getStudentProfile = async (studentId: string): Promise<StudentProfi
         totalOrders,
         lifetimeSpend,
         favoriteItemsCount: favoritesCount ?? 0,
-        // Fix: Add loyaltyPoints to returned profile
         loyaltyPoints: userData.loyalty_points,
     };
 };
@@ -727,16 +696,13 @@ export const deleteReward = async (rewardId: string): Promise<void> => {
     if (error) throw error;
 };
 
-// Fix: Add redeemReward function to handle reward redemption logic.
 export const redeemReward = async (studentId: string, rewardId: string): Promise<Offer> => {
-    // 1. Fetch reward and user data in parallel
     const { data: rewardData, error: rewardError } = await supabase.from('rewards').select('*').eq('id', rewardId).single();
     if (rewardError || !rewardData) throw new Error('Reward not found or could not be fetched.');
 
     const { data: userData, error: userError } = await supabase.from('users').select('loyalty_points').eq('id', studentId).single();
     if (userError || !userData) throw new Error('User not found or could not be fetched.');
 
-    // 2. Check if user can afford it
     if ((userData.loyalty_points || 0) < rewardData.points_cost) {
         throw new Error('You do not have enough points to redeem this reward.');
     }
@@ -747,12 +713,10 @@ export const redeemReward = async (studentId: string, rewardId: string): Promise
         throw new Error('This reward has expired.');
     }
 
-    // 3. Deduct points
     const newPoints = (userData.loyalty_points || 0) - rewardData.points_cost;
     const { error: updateUserError } = await supabase.from('users').update({ loyalty_points: newPoints }).eq('id', studentId);
     if (updateUserError) throw new Error('Failed to update your points balance. Please try again.');
 
-    // 4. Create a new coupon (offer)
     const newCouponCode = `${rewardData.title.substring(0, 4).toUpperCase().replace(/\s/g, '')}${Date.now().toString().slice(-5)}`;
     
     const offerPayload = {
@@ -770,12 +734,9 @@ export const redeemReward = async (studentId: string, rewardId: string): Promise
 
     const { data: newOfferData, error: offerError } = await supabase.from('offers').insert(offerPayload).select().single();
     if (offerError || !newOfferData) {
-        // Rollback point deduction if coupon creation fails
         await supabase.from('users').update({ loyalty_points: userData.loyalty_points }).eq('id', studentId);
         throw new Error('Failed to create your coupon. Please contact support.');
     }
-    
-    // 5. Return the new offer
     return mapDbOfferToAppOffer(newOfferData);
 };
 
@@ -822,33 +783,34 @@ export const verifyOtpAndSaveBankDetails = async (details: OwnerBankDetails, otp
 };
 
 export const addMenuItem = async (itemData: Partial<MenuItem> & { price: number }, ownerId: string): Promise<MenuItem> => {
-    const payload = {
+    const dbPayload = {
         name: itemData.name,
         price: itemData.price,
         image_url: itemData.imageUrl,
         is_available: itemData.isAvailable,
-        emoji: itemData.emoji,
         description: itemData.description,
+        emoji: itemData.emoji,
         is_combo: itemData.isCombo,
         combo_items: itemData.comboItems,
+        // No owner_id if your table doesn't use it, or add it if needed
     };
-    const { data, error } = await supabase.from('menu').insert(payload).select().single();
+    const { data, error } = await supabase.from('menu').insert(dbPayload).select().single();
     if (error) throw error;
     return mapDbMenuToAppMenu(data);
 };
 
 export const updateMenuItem = async (itemId: string, itemData: Partial<MenuItem>): Promise<MenuItem> => {
-    const payload: Record<string, any> = {};
-    if(itemData.name) payload.name = itemData.name;
-    if(itemData.price) payload.price = itemData.price;
-    if(itemData.imageUrl) payload.image_url = itemData.imageUrl;
-    if(itemData.isAvailable !== undefined) payload.is_available = itemData.isAvailable;
-    if(itemData.emoji) payload.emoji = itemData.emoji;
-    if(itemData.description) payload.description = itemData.description;
-    if(itemData.isCombo !== undefined) payload.is_combo = itemData.isCombo;
-    if(itemData.comboItems) payload.combo_items = itemData.comboItems;
-    
-    const { data, error } = await supabase.from('menu').update(payload).eq('id', itemId).select().single();
+    const dbPayload: any = {};
+    if (itemData.name) dbPayload.name = itemData.name;
+    if (itemData.price !== undefined) dbPayload.price = itemData.price;
+    if (itemData.imageUrl) dbPayload.image_url = itemData.imageUrl;
+    if (itemData.isAvailable !== undefined) dbPayload.is_available = itemData.isAvailable;
+    if (itemData.description !== undefined) dbPayload.description = itemData.description;
+    if (itemData.emoji !== undefined) dbPayload.emoji = itemData.emoji;
+    if (itemData.isCombo !== undefined) dbPayload.is_combo = itemData.isCombo;
+    if (itemData.comboItems !== undefined) dbPayload.combo_items = itemData.comboItems;
+
+    const { data, error } = await supabase.from('menu').update(dbPayload).eq('id', itemId).select().single();
     if (error) throw error;
     return mapDbMenuToAppMenu(data);
 };
@@ -858,34 +820,26 @@ export const removeMenuItem = async (itemId: string): Promise<void> => {
     if (error) throw error;
 };
 
-const processImageForUpload = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = error => reject(error);
-    });
-};
-
 export const getCanteenPhotos = async (): Promise<CanteenPhoto[]> => {
     const { data, error } = await supabase.from('canteen_photos').select('*').order('uploaded_at', { ascending: false });
     if (error) throw error;
-    return data.map(p => ({
-        id: p.id,
-        data: p.data,
-        uploadedAt: new Date(p.uploaded_at),
-    }));
+    return data.map(p => ({ id: p.id, data: p.image_url, uploadedAt: new Date(p.uploaded_at) }));
 };
 
 export const addCanteenPhoto = async (file: File): Promise<CanteenPhoto> => {
-    const dataUrl = await processImageForUpload(file);
-    const { data, error } = await supabase.from('canteen_photos').insert({ data: dataUrl }).select().single();
+    // 1. Upload to Storage
+    const fileName = `canteen/${Date.now()}_${file.name}`;
+    const { error: uploadError } = await supabase.storage.from('canteen_assets').upload(fileName, file);
+    if (uploadError) throw uploadError;
+
+    // 2. Get Public URL
+    const { data: { publicUrl } } = supabase.storage.from('canteen_assets').getPublicUrl(fileName);
+
+    // 3. Save to DB
+    const { data, error } = await supabase.from('canteen_photos').insert({ image_url: publicUrl }).select().single();
     if (error) throw error;
-    return {
-        id: data.id,
-        data: data.data,
-        uploadedAt: new Date(data.uploaded_at),
-    };
+
+    return { id: data.id, data: data.image_url, uploadedAt: new Date(data.uploaded_at) };
 };
 
 export const deleteCanteenPhoto = async (photoId: string): Promise<void> => {
@@ -894,12 +848,16 @@ export const deleteCanteenPhoto = async (photoId: string): Promise<void> => {
 };
 
 export const updateCanteenPhoto = async (photoId: string, file: File): Promise<CanteenPhoto> => {
-    const dataUrl = await processImageForUpload(file);
-    const { data, error } = await supabase.from('canteen_photos').update({ data: dataUrl }).eq('id', photoId).select().single();
+    // 1. Upload new image
+    const fileName = `canteen/${Date.now()}_${file.name}`;
+    const { error: uploadError } = await supabase.storage.from('canteen_assets').upload(fileName, file);
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabase.storage.from('canteen_assets').getPublicUrl(fileName);
+
+    // 2. Update DB
+    const { data, error } = await supabase.from('canteen_photos').update({ image_url: publicUrl }).eq('id', photoId).select().single();
     if (error) throw error;
-    return {
-        id: data.id,
-        data: data.data,
-        uploadedAt: new Date(data.uploaded_at),
-    };
+
+    return { id: data.id, data: data.image_url, uploadedAt: new Date(data.uploaded_at) };
 };

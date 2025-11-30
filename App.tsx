@@ -1,8 +1,8 @@
 
-
 import React, { useEffect, useState } from 'react';
 import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { MenuProvider } from './context/MenuContext';
 import { Role } from './types';
 import LoadingScreen from './components/common/LoadingScreen';
 import { supabase } from './services/supabase';
@@ -116,7 +116,7 @@ const AppRoutes = () => {
             <Route path="/terms" element={<TermsAndConditionsPage />} />
             <Route path="/owner/scan-terminal" element={user ? <Navigate to="/" replace /> : <ScanTerminalLoginPage />} />
 
-            {/* Customer Routes - now publicly accessible layout, with protection inside pages */}
+            {/* Customer Routes */}
             <Route path="/customer" element={<CustomerLayout />}>
                 <Route index element={<Navigate to="menu" replace />} />
                 <Route path="menu" element={<MenuPage />} />
@@ -215,9 +215,11 @@ const App: React.FC = () => {
         />
       )}
       <AuthProvider>
-        <HashRouter>
-            <AppRoutes />
-        </HashRouter>
+        <MenuProvider>
+            <HashRouter>
+                <AppRoutes />
+            </HashRouter>
+        </MenuProvider>
       </AuthProvider>
     </div>
   );
