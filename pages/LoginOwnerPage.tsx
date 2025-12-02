@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -36,8 +37,9 @@ const LoginOwnerPage: React.FC = () => {
     if (user && user.role === Role.CANTEEN_OWNER) {
         if (user.approvalStatus === 'pending') setPageState('pending');
         else if (user.approvalStatus === 'rejected') setPageState('rejected');
+        else if (user.approvalStatus === 'approved') navigate('/owner/dashboard');
     }
-  }, [user]);
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,21 +48,28 @@ const LoginOwnerPage: React.FC = () => {
     try {
       const loggedInUser = await login(phoneOrEmail, password);
       
+      // Admin Bypass
       if (loggedInUser.role === Role.ADMIN) {
         navigate('/admin/dashboard');
         return;
       }
       
+      // Canteen Owner Logic
       if (loggedInUser.role === Role.CANTEEN_OWNER) {
         if (loggedInUser.approvalStatus === 'approved') {
           navigate('/owner/dashboard');
         } else if (loggedInUser.approvalStatus === 'pending') {
           setPageState('pending');
-        } else {
+        } else if (loggedInUser.approvalStatus === 'rejected') {
           setPageState('rejected');
+        } else {
+           // Fallback for missing status
+           setError('Account status unknown. Please contact support.');
+           logout();
         }
       } else {
-        setError('Access denied. This portal is for partners and admins only.');
+        // Prevent Students from logging in here
+        setError('Access denied. This portal is for Canteen Owners only.');
         logout();
       }
     } catch (err) {
@@ -78,13 +87,18 @@ const LoginOwnerPage: React.FC = () => {
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-yellow-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
-                        <h2 className="text-3xl font-bold font-heading">Awaiting Approval</h2>
+                        <h2 className="text-3xl font-bold font-heading">Waiting for Approval</h2>
                         <p className="text-gray-300 mt-2 mb-6">
-                            Your account requires administrator approval. You will be notified once it's active.
+                            Your account is currently under review by the administrator. You cannot access the dashboard yet.
                         </p>
                         <button onClick={() => { logout(); setPageState('form'); }} className="text-sm text-gray-400 hover:underline">
-                            Logout
+                            Logout & Check Later
                         </button>
+                        <div className="mt-6 pt-4 border-t border-white/10">
+                            <Link to="/" className="text-sm text-indigo-400 hover:text-white font-semibold transition-colors">
+                                ← Return Home
+                            </Link>
+                        </div>
                    </div>
               );
           case 'rejected':
@@ -95,11 +109,16 @@ const LoginOwnerPage: React.FC = () => {
                         </svg>
                       <h2 className="text-3xl font-bold font-heading">Account Rejected</h2>
                       <p className="text-gray-300 mt-2 mb-6">
-                          Your registration was rejected by the Admin. Please contact support for re-verification if you believe this is an error.
+                          Your registration request was not approved. Please contact support for more details.
                       </p>
                       <button onClick={() => { logout(); setPageState('form'); }} className="w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors">
-                          Return to Login
+                          Back to Login
                       </button>
+                      <div className="mt-6 pt-4 border-t border-white/10">
+                            <Link to="/" className="text-sm text-indigo-400 hover:text-white font-semibold transition-colors">
+                                ← Return Home
+                            </Link>
+                        </div>
                   </div>
               );
           case 'form':
@@ -107,8 +126,8 @@ const LoginOwnerPage: React.FC = () => {
               return (
                   <>
                     <div className="text-center mb-8">
-                      <h2 className="text-4xl font-bold font-heading text-white">Partner & Admin Login</h2>
-                      <p className="text-gray-300 mt-2">Manage your cinema or the platform.</p>
+                      <h2 className="text-4xl font-bold font-heading text-white">Canteen Owner Login</h2>
+                      <p className="text-gray-300 mt-2">Manage your menu and orders.</p>
                     </div>
                     
                     <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
@@ -137,12 +156,17 @@ const LoginOwnerPage: React.FC = () => {
                         {error && <p className="text-red-400 text-sm text-center !-mt-2">{error}</p>}
                         
                         <button type="submit" disabled={loading} className="w-full bg-indigo-600 text-white font-bold font-heading py-3 px-4 rounded-lg shadow-[0_5px_15px_rgba(99,102,241,0.3)] transition-all duration-300 transform hover:-translate-y-1 hover:shadow-[0_8px_25px_rgba(99,102,241,0.4)] active:scale-95 active:shadow-inner disabled:bg-indigo-400/50 disabled:shadow-none disabled:transform-none">
-                          {loading ? 'Logging in...' : 'Login'}
+                          {loading ? 'Verifying...' : 'Login'}
                         </button>
                     </form>
 
-                    <div className="text-center mt-6 space-y-2">
-                         <p><Link to="/register-owner" className="text-sm text-indigo-400 hover:text-indigo-300 font-bold font-heading transition-colors">Don't have an account? Register</Link></p>
+                    <div className="text-center mt-6 space-y-3">
+                         <p><Link to="/register-owner" className="text-sm text-indigo-400 hover:text-indigo-300 font-bold font-heading transition-colors">Register Account</Link></p>
+                         <div className="border-t border-gray-700 pt-3">
+                            <Link to="/" className="text-sm text-gray-400 hover:text-white transition-colors flex items-center justify-center gap-1">
+                                🏠 Home
+                            </Link>
+                         </div>
                     </div>
                   </>
               );

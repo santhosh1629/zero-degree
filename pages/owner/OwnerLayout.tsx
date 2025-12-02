@@ -35,7 +35,7 @@ const OwnerLayout: React.FC = () => {
         setCenterToast({ message: 'Logged out successfully!' });
         setTimeout(() => {
             logout();
-            navigate('/');
+            navigate('/'); // Redirect to Home Page
             setCenterToast(null);
         }, 3000);
     };
