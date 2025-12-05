@@ -126,7 +126,7 @@ const HomePage: React.FC = () => {
             <main className="relative z-20 flex flex-col items-center justify-center text-center">
                  {/* Responsive heading */}
                  <h1 className="font-heading text-3xl sm:text-5xl lg:text-7xl font-black whitespace-nowrap" style={{ textShadow: '0 4px 15px rgba(0,0,0,0.5)' }}>
-                    <span className="text-textPrimary">🍿𝐒𝐚𝐧𝐠𝐞𝐞𝐭𝐡𝐚✨𝐂𝐢𝐧𝐞𝐦𝐚𝐬🎬</span>
+                    <span className="text-textPrimary">🍿SANGEETHA ✨THEATRE🎬</span>
                 </h1>
 
                 {/* Responsive typewriter */}
